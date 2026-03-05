@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>California Groundwater Site Investigation - Data Sources Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --bg-primary: #f0f4f8;
+            --bg-card: #ffffff;
+            --bg-header: #1b3a5c;
+            --bg-header-accent: #2a5f8f;
+            --text-primary: #1a2332;
+            --text-secondary: #5a6a7e;
+            --text-on-dark: #ffffff;
+            --color-federal: #2563eb;
+            --color-state: #d97706;
+            --color-geo: #059669;
+            --positive: #10b981;
+            --negative: #ef4444;
+            --border: #e2e8f0;
+            --gap: 16px;
+            --radius: 10px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+        .dashboard-container { max-width: 1500px; margin: 0 auto; padding: var(--gap); }
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--bg-header) 0%, var(--bg-header-accent) 100%);
+            color: var(--text-on-dark);
+            padding: 24px 28px;
+            border-radius: var(--radius);
+            margin-bottom: var(--gap);
+        }
+        .header-top {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+        }
+        .header-top h1 { font-size: 22px; font-weight: 700; }
+        .header-top .subtitle { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+        .filters {
+            display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+        }
+        .filter-group { display: flex; align-items: center; gap: 6px; }
+        .filter-group label { font-size: 11px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.5px; }
+        .filter-group select, .filter-group input[type="text"] {
+            padding: 7px 12px; border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 6px; background: rgba(255,255,255,0.12);
+            color: var(--text-on-dark); font-size: 13px; min-width: 140px;
+        }
+        .filter-group select option { background: var(--bg-header); color: #fff; }
+        .filter-group input::placeholder { color: rgba(255,255,255,0.5); }
+        .kpi-row {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--gap); margin-bottom: var(--gap);
+        }
+        .kpi-card {
+            background: var(--bg-card); border-radius: var(--radius);
+            padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            border-left: 4px solid var(--color-federal);
+        }
+        .kpi-card:nth-child(2) { border-left-color: var(--color-state); }
+        .kpi-card:nth-child(3) { border-left-color: var(--color-geo); }
+        .kpi-card:nth-child(4) { border-left-color: #7c3aed; }
+        .kpi-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .kpi-value { font-size: 32px; font-weight: 700; }
+        .chart-row {
+            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: var(--gap); margin-bottom: var(--gap);
+        }
+        .chart-container {
+            background: var(--bg-card); border-radius: var(--radius);
+            padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .chart-container h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary); }
+        .chart-container canvas { max-height: 260px; }
+        .table-section {
+            background: var(--bg-card); border-radius: var(--radius);
+            padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            overflow-x: auto; margin-bottom: var(--gap);
+        }
+        .table-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+        .result-count { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table thead th {
+            text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--border);
+            color: var(--text-secondary); font-weight: 600; font-size: 11px;
+            text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+            cursor: pointer; user-select: none;
+        }
+        .data-table thead th:hover { color: var(--text-primary); background: #f8fafc; }
+        .data-table tbody td { padding: 10px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: top; }
+        .data-table tbody tr:hover { background: #f8fafc; }
+        .data-table a { color: var(--color-federal); text-decoration: none; font-weight: 500; }
+        .data-table a:hover { text-decoration: underline; }
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 12px;
+            font-size: 11px; font-weight: 600;
+        }
+        .badge-yes { background: #d1fae5; color: #065f46; }
+        .badge-no { background: #fee2e2; color: #991b1b; }
+        .badge-federal { background: #dbeafe; color: #1e40af; }
+        .badge-state { background: #fef3c7; color: #92400e; }
+        .badge-geo { background: #d1fae5; color: #065f46; }
+        .detail-section { margin-bottom: var(--gap); }
+        .detail-section h2 {
+            font-size: 18px; font-weight: 700; margin-bottom: 12px;
+            padding: 12px 20px; border-radius: var(--radius);
+            color: #fff; cursor: pointer; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        .detail-section h2.federal-header { background: var(--color-federal); }
+        .detail-section h2.state-header { background: var(--color-state); }
+        .detail-section h2.geo-header { background: var(--color-geo); }
+        .detail-section h2 .toggle { font-size: 14px; }
+        .detail-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: var(--gap); }
+        .detail-cards.collapsed { display: none; }
+        .detail-card {
+            background: var(--bg-card); border-radius: var(--radius);
+            padding: 18px 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            border-top: 3px solid var(--border);
+        }
+        .detail-card.federal { border-top-color: var(--color-federal); }
+        .detail-card.state { border-top-color: var(--color-state); }
+        .detail-card.geo { border-top-color: var(--color-geo); }
+        .detail-card h4 { font-size: 15px; margin-bottom: 6px; }
+        .detail-card h4 a { color: var(--text-primary); text-decoration: none; }
+        .detail-card h4 a:hover { color: var(--color-federal); }
+        .detail-card .agency-tag { font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+        .detail-card p { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.6; }
+        .detail-card .endpoints { font-size: 12px; }
+        .detail-card .endpoints strong { color: var(--text-primary); }
+        .detail-card .endpoints a { color: var(--color-federal); font-size: 12px; word-break: break-all; }
+        .dashboard-footer {
+            text-align: center; padding: 16px; font-size: 12px; color: var(--text-secondary);
+        }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: rgba(255,255,255,0.8); text-decoration: none; font-size: 13px;
+            padding: 6px 14px; border-radius: 6px; background: rgba(255,255,255,0.1);
+            transition: background 0.2s;
+        }
+        .back-link:hover { background: rgba(255,255,255,0.2); color: #fff; }
+        @media (max-width: 900px) {
+            .chart-row { grid-template-columns: 1fr; }
+            .detail-cards { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .filters { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <div class="header-top">
+            <div>
+                <a href="index.html" class="back-link">&larr; Back to Toolkit</a>
+                <h1 style="margin-top:8px;">California Groundwater Site Investigation</h1>
+                <div class="subtitle">Data Sources Reference Dashboard &mdash; Federal, State &amp; Hydrogeology Databases</div>
+            </div>
+        </div>
+        <div class="filters">
+            <div class="filter-group">
+                <label>Category</label>
+                <select id="filter-category" onchange="dashboard.applyFilters()">
+                    <option value="all">All Categories</option>
+                    <option value="Federal">Federal</option>
+                    <option value="California State">California State</option>
+                    <option value="Geologic-Hydro">Geologic / Hydro</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Data Type</label>
+                <select id="filter-datatype" onchange="dashboard.applyFilters()">
+                    <option value="all">All Data Types</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>API</label>
+                <select id="filter-api" onchange="dashboard.applyFilters()">
+                    <option value="all">All</option>
+                    <option value="Yes">Has API</option>
+                    <option value="No">No API</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>GIS</label>
+                <select id="filter-gis" onchange="dashboard.applyFilters()">
+                    <option value="all">All</option>
+                    <option value="Yes">Has GIS</option>
+                    <option value="No">No GIS</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Search</label>
+                <input type="text" id="filter-search" placeholder="Search sources..." oninput="dashboard.applyFilters()">
+            </div>
+        </div>
+    </div>
+
+    <section class="kpi-row">
+        <div class="kpi-card"><div class="kpi-label">Total Sources</div><div class="kpi-value" id="kpi-total">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">With API Access</div><div class="kpi-value" id="kpi-api">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">With GIS / WMS</div><div class="kpi-value" id="kpi-gis">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">CA State Sources</div><div class="kpi-value" id="kpi-state">0</div></div>
+    </section>
+
+    <section class="chart-row">
+        <div class="chart-container"><h3>Sources by Agency</h3><canvas id="chart-agency"></canvas></div>
+        <div class="chart-container"><h3>Sources by Data Type</h3><canvas id="chart-datatype"></canvas></div>
+        <div class="chart-container"><h3>API &amp; GIS Availability</h3><canvas id="chart-availability"></canvas></div>
+    </section>
+
+    <section class="table-section">
+        <h3>All Data Sources</h3>
+        <div class="result-count" id="result-count"></div>
+        <div id="table-container"></div>
+    </section>
+
+    <section class="detail-section">
+        <h2 class="federal-header" onclick="toggleSection('federal-cards')">Federal Data Sources <span class="toggle" id="toggle-federal-cards">&#9660;</span></h2>
+        <div class="detail-cards" id="federal-cards"></div>
+    </section>
+    <section class="detail-section">
+        <h2 class="state-header" onclick="toggleSection('state-cards')">California State Data Sources <span class="toggle" id="toggle-state-cards">&#9660;</span></h2>
+        <div class="detail-cards" id="state-cards"></div>
+    </section>
+    <section class="detail-section">
+        <h2 class="geo-header" onclick="toggleSection('geo-cards')">Geologic &amp; Hydrogeology Sources <span class="toggle" id="toggle-geo-cards">&#9660;</span></h2>
+        <div class="detail-cards" id="geo-cards"></div>
+    </section>
+
+    <footer class="dashboard-footer">
+        Dashboard generated March 2026 &mdash; Verify all URLs before use; agency sites may update periodically.
+    </footer>
+</div>
+
+<script>
+const COLORS = ['#2563eb','#d97706','#059669','#dc2626','#7c3aed','#0891b2','#be185d','#65a30d','#c2410c','#4338ca','#0d9488','#b91c1c'];
+
+const DATA = [
+    // === FEDERAL ===
+    {
+        name: "USGS National Water Information System (NWIS)",
+        url: "https://waterdata.usgs.gov/nwis/",
+        agency: "USGS",
+        category: "Federal",
+        dataType: "Groundwater Levels",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "https://waterservices.usgs.gov/",
+        gisUrl: "https://www.usgs.gov/tools/national-water-information-system-nwis-mapper",
+        description: "Groundwater levels, surface water, water quality from 1.5M+ monitoring sites nationwide. California Active Groundwater Level Network with 20,000+ wells.",
+        detail: "Real-time and historical groundwater level data, water quality measurements, spring data. REST API supports JSON/XML, filterable by site, state, HUC, bounding box, county."
+    },
+    {
+        name: "USGS Water Data APIs (Modernized)",
+        url: "https://api.waterdata.usgs.gov/",
+        agency: "USGS",
+        category: "Federal",
+        dataType: "Groundwater Levels",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "https://api.waterdata.usgs.gov/docs/",
+        gisUrl: "",
+        description: "Modernized OGC API for real-time sensor measurements, daily values, streamflow, and hundreds of water parameters.",
+        detail: "OGC API standards (REST-based). API key required via api.waterdata.usgs.gov/signup/. Supports continuous and discrete measurements."
+    },
+    {
+        name: "USGS StreamStats",
+        url: "https://streamstats.usgs.gov/ss/",
+        agency: "USGS",
+        category: "Federal",
+        dataType: "Hydrology",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "https://streamstats.usgs.gov/docs/streamstatsservices/",
+        gisUrl: "",
+        description: "Basin characteristics, drainage area delineation, streamflow statistics, flood frequency estimates (2- to 500-year recurrence).",
+        detail: "RESTful API for basin delineation and flow statistics. California coverage available. Regression equations for ungaged locations."
+    },
+    {
+        name: "USGS 3D Elevation Program (3DEP)",
+        url: "https://www.usgs.gov/3d-elevation-program",
+        agency: "USGS",
+        category: "Federal",
+        dataType: "Elevation / LiDAR",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+        description: "Digital elevation models, LiDAR point clouds, hillshade, contours, slope and aspect data.",
+        detail: "ArcGIS REST ImageServer. OGC WMS, WCS, WMTS, WFS services. Cloud Optimized GeoTIFF on AWS. OpenTopography API also available."
+    },
+    {
+        name: "EPA ECHO",
+        url: "https://echo.epa.gov/",
+        agency: "EPA",
+        category: "Federal",
+        dataType: "Contamination Sites",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "https://echo.epa.gov/tools/web-services",
+        gisUrl: "",
+        description: "Environmental compliance history, inspections, violations, enforcement actions for 1M+ regulated facilities (CAA, CWA, RCRA, SDWA).",
+        detail: "REST Web Services with multiple endpoints. Data Exporter with 130+ fields. R package 'echor' available. GIS Map Services with facility symbology."
+    },
+    {
+        name: "EPA Envirofacts",
+        url: "https://enviro.epa.gov/",
+        agency: "EPA",
+        category: "Federal",
+        dataType: "Contamination Sites",
+        hasAPI: "Yes",
+        hasGIS: "No",
+        apiUrl: "https://www.epa.gov/enviro/envirofacts-data-service-api",
+        gisUrl: "",
+        description: "Integrated data from RCRA, CERCLIS, SDWA, TRI, and other EPA databases. Hazardous waste handlers, contamination sites.",
+        detail: "REST API with URL-based queries. Responses in XML, JSON, CSV, or Excel. Database table query structure with filters, sorting, paging."
+    },
+    {
+        name: "EPA Superfund (CERCLIS / SEMS)",
+        url: "https://www.epa.gov/superfund/search-superfund-sites-where-you-live",
+        agency: "EPA",
+        category: "Federal",
+        dataType: "Contamination Sites",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "National Priorities List (NPL) sites, proposed sites, archived sites. Remedial actions, contaminants detected, hazard rankings.",
+        detail: "Superfund Enterprise Management System (SEMS) replaced CERCLIS. API access available. Data.gov datasets for bulk download. Includes maximum concentration levels."
+    },
+    {
+        name: "EPA RCRAInfo",
+        url: "https://rcrapublic.epa.gov/rcra-hwip/",
+        agency: "EPA",
+        category: "Federal",
+        dataType: "Contamination Sites",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Hazardous waste handlers: treatment, storage/disposal facilities, generators, transporters. Waste types, inspections, violations.",
+        detail: "Data integrated into ECHO platform. Accessed via Envirofacts API. ArcGIS feature service available. EPA Facility Registry Service integration."
+    },
+    {
+        name: "EPA UST Finder",
+        url: "https://www.epa.gov/land-research/underground-storage-tank-ust-finder",
+        agency: "EPA",
+        category: "Federal",
+        dataType: "Contamination Sites",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Active and closed UST locations, release data, proximity to groundwater protection areas, public water supplies, domestic wells.",
+        detail: "Web map application with import/export. API available. Data covers 2018-2021 (US), 2025 (tribal lands). Flooding/wildfire zone overlays."
+    },
+    {
+        name: "Water Quality Portal (WQX / STORET)",
+        url: "https://www.waterqualitydata.us/",
+        agency: "EPA / USGS",
+        category: "Federal",
+        dataType: "Water Quality",
+        hasAPI: "Yes",
+        hasGIS: "No",
+        apiUrl: "https://cdx.epa.gov/WQXWeb/StaticPages/WebServicesGuide.htm",
+        gisUrl: "",
+        description: "Combined USGS + EPA water quality monitoring data: analytical results, sampling locations, nutrients, contaminants, temperature, pH.",
+        detail: "WQX Web API requires registered account and encryption key. HTTP GET/POST submissions. JSON Schema on GitHub. Shared USGS/EPA portal."
+    },
+    {
+        name: "EPA EJScreen",
+        url: "https://www.epa.gov/ejscreen",
+        agency: "EPA",
+        category: "Federal",
+        dataType: "Environmental Justice",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "https://gaftp.epa.gov/EJScreen/",
+        description: "Demographic and environmental indicators at census block group level: air quality, lead paint, traffic, Superfund proximity, hazardous waste.",
+        detail: "API and Feature Service available. Downloads in .gdb or .csv. ArcGIS feature service. Useful for environmental justice screening in site investigations."
+    },
+    {
+        name: "FEMA National Flood Hazard Layer (NFHL)",
+        url: "https://msc.fema.gov/",
+        agency: "FEMA",
+        category: "Federal",
+        dataType: "Flood Hazards",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "https://hazards.fema.gov/femaportal/resources/flood_map_svc.htm",
+        gisUrl: "https://hazards.fema.gov/femaportal/wps/portal/NFHLWMS",
+        description: "Flood hazard zones (A, AE, X), floodway boundaries, base flood elevations, flood risk assessment data.",
+        detail: "WMS Web Map Service available. GIS Web Services. ArcGIS Online via FEMA GeoPlatform. Third-party API documentation available."
+    },
+    {
+        name: "USDA Web Soil Survey",
+        url: "https://websoilsurvey.nrcs.usda.gov/app/",
+        agency: "USDA",
+        category: "Federal",
+        dataType: "Soils",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "https://sdmdataaccess.nrcs.usda.gov/",
+        gisUrl: "",
+        description: "SSURGO soil data: soil types, properties, water holding capacity, drainage, seasonal water table depths, parent material.",
+        detail: "OGC WMS 1.1.1 and WFS 1.1.0 compliant. SQL Query Service for tabular data. Download as Shapefile, Geodatabase, GeoPackage. CA SoilWeb: casoilresource.lawr.ucdavis.edu"
+    },
+    {
+        name: "National Wetlands Inventory (NWI)",
+        url: "https://www.fws.gov/program/national-wetlands-inventory",
+        agency: "USFWS",
+        category: "Federal",
+        dataType: "Wetlands",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest",
+        description: "Wetland and deepwater habitat extent, location, and classification. 37 million wetland features nationwide.",
+        detail: "WMS and REST Services. OGC-compliant. Download as Shapefile, File Geodatabase, GeoPackage. Updated biannually. ArcGIS integration."
+    },
+    {
+        name: "NOAA Climate Data Online",
+        url: "https://www.ncei.noaa.gov/cdo-web/",
+        agency: "NOAA",
+        category: "Federal",
+        dataType: "Climate",
+        hasAPI: "Yes",
+        hasGIS: "No",
+        apiUrl: "https://www.ncei.noaa.gov/access/services/data/v1",
+        gisUrl: "",
+        description: "Historical daily temperature, precipitation, wind, degree days, 30-year Climate Normals from weather stations across California.",
+        detail: "REST API with JSON output. Token required (5 req/sec, 10K/day). R package 'rnoaa' available. Useful for recharge and climate trend analysis."
+    },
+    // === CALIFORNIA STATE ===
+    {
+        name: "GeoTracker",
+        url: "https://geotracker.waterboards.ca.gov/",
+        agency: "SWRCB",
+        category: "California State",
+        dataType: "Contamination Sites",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "LUST sites, DoD sites, cleanup program sites, permitted USTs. Soil, vapor, and groundwater analytical results, boring logs, site maps.",
+        detail: "Primary database for California contaminated site investigations. Contains monitoring reports, investigation documents. Advanced search and GIS mapping. Contact: geotracker@waterboards.ca.gov"
+    },
+    {
+        name: "GAMA (Groundwater Ambient Monitoring & Assessment)",
+        url: "https://www.waterboards.ca.gov/gama/",
+        agency: "SWRCB / USGS",
+        category: "California State",
+        dataType: "Water Quality",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "https://www.waterboards.ca.gov/gama/gama-gis.html",
+        gisUrl: "",
+        description: "87 million analytical results from 290,000+ wells statewide. Priority basin assessments, domestic/public supply aquifer data, PFAS data.",
+        detail: "GAMA Groundwater Information System with interactive mapping. Online database with download. Trends analysis tool for 38 inorganic constituents. USGS partnership data."
+    },
+    {
+        name: "EnviroStor",
+        url: "https://www.envirostor.dtsc.ca.gov/public/",
+        agency: "DTSC",
+        category: "California State",
+        dataType: "Contamination Sites",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "https://gis.data.ca.gov/maps/aaa6a5dcf4d349ac8fd7b8e58e88f974",
+        description: "~13,000 sites with known contamination: cleanup sites, hazardous waste sites, inspection records. Updated daily.",
+        detail: "GIS-based mapping interface. Feature Layer Collection on CA Geoportal. 3,400+ DTSC inspections, 100+ authorized hazardous waste facilities."
+    },
+    {
+        name: "Cortese List",
+        url: "https://dtsc.ca.gov/dtscs-cortese-list/",
+        agency: "DTSC / SWRCB",
+        category: "California State",
+        dataType: "Contamination Sites",
+        hasAPI: "No",
+        hasGIS: "No",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Consolidated hazardous material release sites list for CEQA compliance. Combines EnviroStor, GeoTracker LUST, and solid waste disposal sites.",
+        detail: "Required reference for California Environmental Quality Act reviews. Cross-references DTSC EnviroStor records, SWRCB GeoTracker LUST sites, and Water Board solid waste sites."
+    },
+    {
+        name: "CASGEM (Groundwater Elevation Monitoring)",
+        url: "https://water.ca.gov/programs/groundwater-management/groundwater-elevation-monitoring--casgem",
+        agency: "DWR",
+        category: "California State",
+        dataType: "Groundwater Levels",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Seasonal and long-term groundwater elevation measurements from basins statewide since 2009. Peak high/low values, monthly/weekly/daily at some sites.",
+        detail: "CASGEM Online System with user submission capabilities. Integration with SGMA Portal underway. Data on California Open Data and CNRA portals."
+    },
+    {
+        name: "SGMA Data Viewer",
+        url: "https://water.ca.gov/programs/groundwater-management/data-and-tools",
+        agency: "DWR",
+        category: "California State",
+        dataType: "Groundwater Levels",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Groundwater sustainability plans, monitoring network data, annual reports from Groundwater Sustainability Agencies (GSAs).",
+        detail: "SGMA Data Viewer with web GIS interface. Consolidated groundwater elevation data from CASGEM and monitoring networks. Also on Drought.gov."
+    },
+    {
+        name: "Well Completion Reports (WCR)",
+        url: "https://water.ca.gov/Programs/Groundwater-Management/Wells/Well-Completion-Reports",
+        agency: "DWR",
+        category: "California State",
+        dataType: "Well Construction",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Index of ~800,000 well construction records: well depth, aquifer info, lithologic logs, construction details. Personal info redacted.",
+        detail: "OSWCR Online System. Data as CSV, GeoJSON. WCR Map Application. Most wells registered to center of 1x1 mile PLSS section. California's Groundwater Live dashboard."
+    },
+    {
+        name: "CGS Geologic Hazards",
+        url: "https://maps.conservation.ca.gov/geologichazards/",
+        agency: "CGS",
+        category: "Geologic-Hydro",
+        dataType: "Geology",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "https://maps.conservation.ca.gov/cgs/",
+        description: "Geologic maps, fault maps, seismic hazard zone maps, liquefaction zones, earthquake-induced landslide zones.",
+        detail: "CGS Geoportal with web services (WMS/WFS). GIS Feature Services. Earthquake Zones of Required Investigation app."
+    },
+    {
+        name: "CGS Seismic Hazard Maps",
+        url: "https://www.conservation.ca.gov/cgs/shma",
+        agency: "CGS",
+        category: "Geologic-Hydro",
+        dataType: "Geology",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Seismic Hazard Zones: liquefaction, earthquake-induced landslide, amplified ground shaking. Per the Seismic Hazards Mapping Act of 1990.",
+        detail: "WMS/WFS web services. Landslide Zones and Liquefaction Zones shapefiles available. Regulatory basis for required investigations."
+    },
+    {
+        name: "CERS (CA Environmental Reporting System)",
+        url: "https://cers.calepa.ca.gov/",
+        agency: "Cal/EPA",
+        category: "California State",
+        dataType: "Hazardous Materials",
+        hasAPI: "Yes",
+        hasGIS: "No",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Hazardous materials inventory data reported by businesses to Certified Unified Program Agencies (CUPAs). Chemical inventory info.",
+        detail: "Web-based portal. CUPA Locator at calcupa.org. Data registry for statewide hazmat facility reporting."
+    },
+    {
+        name: "California State Geoportal",
+        url: "https://gis.data.ca.gov/",
+        agency: "State of CA",
+        category: "California State",
+        dataType: "GIS Data Hub",
+        hasAPI: "Yes",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Authoritative geospatial data from CA state agencies: groundwater, geology, environment, hazard layers. ArcGIS Online Hub.",
+        detail: "REST, WMS, WFS, GeoJSON API support. Export as CSV, KML, Zip, GeoJSON, GeoTIFF, PNG. Central hub for all California geospatial data."
+    },
+    {
+        name: "SWRCB PFAS Program",
+        url: "https://www.waterboards.ca.gov/pfas/",
+        agency: "SWRCB",
+        category: "California State",
+        dataType: "PFAS",
+        hasAPI: "No",
+        hasGIS: "No",
+        apiUrl: "",
+        gisUrl: "",
+        description: "PFAS contamination data: drinking water, airports, landfills monitoring orders. AB 178 free testing program (3,600 wells, 2024-2026).",
+        detail: "PFAS drinking water data. General Monitoring Orders for airports and landfills. USGS partnership data for 897 sites (25 PFAS chemicals, 2019-2024)."
+    },
+    {
+        name: "CA SoilWeb (UC Davis)",
+        url: "https://casoilresource.lawr.ucdavis.edu/gmap/",
+        agency: "UC Davis / USDA",
+        category: "Geologic-Hydro",
+        dataType: "Soils",
+        hasAPI: "No",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "California-specific soil mapping interface built on SSURGO data. Quick identification of soil series and properties for any location in CA.",
+        detail: "Interactive Google Maps-based interface. Seamless California/Nevada/Arizona coverage. Faster and more intuitive than federal Web Soil Survey for CA work."
+    },
+    {
+        name: "Stanford Groundwater Mapping",
+        url: "https://mapwater.stanford.edu/",
+        agency: "Stanford University",
+        category: "Geologic-Hydro",
+        dataType: "Hydrology",
+        hasAPI: "No",
+        hasGIS: "Yes",
+        apiUrl: "",
+        gisUrl: "",
+        description: "Research-based California groundwater mapping. Hydrogeologic characterization and aquifer extent mapping.",
+        detail: "Academic resource for groundwater research. Supplements USGS and DWR basin characterization data."
+    }
+];
+
+function toggleSection(id) {
+    const el = document.getElementById(id);
+    const toggle = document.getElementById('toggle-' + id);
+    el.classList.toggle('collapsed');
+    toggle.textContent = el.classList.contains('collapsed') ? '\u25B6' : '\u25BC';
+}
+
+class Dashboard {
+    constructor(data) {
+        this.rawData = data;
+        this.filteredData = data;
+        this.charts = {};
+        this.sortCol = null;
+        this.sortDir = 'asc';
+        this.init();
+    }
+
+    init() {
+        this.populateDataTypeFilter();
+        this.renderKPIs();
+        this.renderCharts();
+        this.renderTable();
+        this.renderDetailCards();
+    }
+
+    populateDataTypeFilter() {
+        const select = document.getElementById('filter-datatype');
+        const types = [...new Set(this.rawData.map(d => d.dataType))].sort();
+        types.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t; opt.textContent = t;
+            select.appendChild(opt);
+        });
+    }
+
+    applyFilters() {
+        const cat = document.getElementById('filter-category').value;
+        const dt = document.getElementById('filter-datatype').value;
+        const api = document.getElementById('filter-api').value;
+        const gis = document.getElementById('filter-gis').value;
+        const search = document.getElementById('filter-search').value.toLowerCase();
+
+        this.filteredData = this.rawData.filter(row => {
+            if (cat !== 'all' && row.category !== cat) return false;
+            if (dt !== 'all' && row.dataType !== dt) return false;
+            if (api !== 'all' && row.hasAPI !== api) return false;
+            if (gis !== 'all' && row.hasGIS !== gis) return false;
+            if (search && !(
+                row.name.toLowerCase().includes(search) ||
+                row.agency.toLowerCase().includes(search) ||
+                row.description.toLowerCase().includes(search) ||
+                row.dataType.toLowerCase().includes(search)
+            )) return false;
+            return true;
+        });
+
+        this.renderKPIs();
+        this.updateCharts();
+        this.renderTable();
+    }
+
+    renderKPIs() {
+        const d = this.filteredData;
+        document.getElementById('kpi-total').textContent = d.length;
+        document.getElementById('kpi-api').textContent = d.filter(r => r.hasAPI === 'Yes').length;
+        document.getElementById('kpi-gis').textContent = d.filter(r => r.hasGIS === 'Yes').length;
+        document.getElementById('kpi-state').textContent = d.filter(r => r.category === 'California State').length;
+    }
+
+    renderCharts() {
+        this.charts.agency = this.createDoughnutChart('chart-agency', 'agency');
+        this.charts.datatype = this.createBarChart('chart-datatype', 'dataType');
+        this.charts.availability = this.createAvailabilityChart('chart-availability');
+    }
+
+    createDoughnutChart(canvasId, field) {
+        const counts = {};
+        this.filteredData.forEach(r => { counts[r[field]] = (counts[r[field]] || 0) + 1; });
+        const labels = Object.keys(counts);
+        const data = Object.values(counts);
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        return new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels, datasets: [{
+                    data, backgroundColor: COLORS.slice(0, labels.length).map(c => c + 'CC'),
+                    borderColor: '#fff', borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '55%',
+                plugins: {
+                    legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 11 } } },
+                    tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed} source${ctx.parsed !== 1 ? 's' : ''}` } }
+                }
+            }
+        });
+    }
+
+    createBarChart(canvasId, field) {
+        const counts = {};
+        this.filteredData.forEach(r => { counts[r[field]] = (counts[r[field]] || 0) + 1; });
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        const labels = sorted.map(e => e[0]);
+        const data = sorted.map(e => e[1]);
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels, datasets: [{
+                    data, backgroundColor: COLORS.slice(0, labels.length).map(c => c + 'BB'),
+                    borderColor: COLORS.slice(0, labels.length), borderWidth: 1, borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { display: true } },
+                    y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+                }
+            }
+        });
+    }
+
+    createAvailabilityChart(canvasId) {
+        const d = this.filteredData;
+        const apiYes = d.filter(r => r.hasAPI === 'Yes').length;
+        const apiNo = d.filter(r => r.hasAPI === 'No').length;
+        const gisYes = d.filter(r => r.hasGIS === 'Yes').length;
+        const gisNo = d.filter(r => r.hasGIS === 'No').length;
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['API Access', 'GIS / WMS'],
+                datasets: [
+                    { label: 'Available', data: [apiYes, gisYes], backgroundColor: '#10b981CC', borderRadius: 4 },
+                    { label: 'Not Available', data: [apiNo, gisNo], backgroundColor: '#ef4444CC', borderRadius: 4 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 12 } } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+    }
+
+    updateCharts() {
+        // Agency doughnut
+        const agencyCounts = {};
+        this.filteredData.forEach(r => { agencyCounts[r.agency] = (agencyCounts[r.agency] || 0) + 1; });
+        this.charts.agency.data.labels = Object.keys(agencyCounts);
+        this.charts.agency.data.datasets[0].data = Object.values(agencyCounts);
+        this.charts.agency.data.datasets[0].backgroundColor = COLORS.slice(0, Object.keys(agencyCounts).length).map(c => c + 'CC');
+        this.charts.agency.update('none');
+
+        // Data type bar
+        const dtCounts = {};
+        this.filteredData.forEach(r => { dtCounts[r.dataType] = (dtCounts[r.dataType] || 0) + 1; });
+        const dtSorted = Object.entries(dtCounts).sort((a, b) => b[1] - a[1]);
+        this.charts.datatype.data.labels = dtSorted.map(e => e[0]);
+        this.charts.datatype.data.datasets[0].data = dtSorted.map(e => e[1]);
+        this.charts.datatype.data.datasets[0].backgroundColor = COLORS.slice(0, dtSorted.length).map(c => c + 'BB');
+        this.charts.datatype.data.datasets[0].borderColor = COLORS.slice(0, dtSorted.length);
+        this.charts.datatype.update('none');
+
+        // Availability bar
+        const d = this.filteredData;
+        this.charts.availability.data.datasets[0].data = [d.filter(r => r.hasAPI === 'Yes').length, d.filter(r => r.hasGIS === 'Yes').length];
+        this.charts.availability.data.datasets[1].data = [d.filter(r => r.hasAPI === 'No').length, d.filter(r => r.hasGIS === 'No').length];
+        this.charts.availability.update('none');
+    }
+
+    renderTable() {
+        const container = document.getElementById('table-container');
+        const data = this.sortCol ? this.getSortedData() : this.filteredData;
+        document.getElementById('result-count').textContent = `Showing ${data.length} of ${this.rawData.length} sources`;
+
+        const arrow = col => this.sortCol === col ? (this.sortDir === 'asc' ? ' \u25B2' : ' \u25BC') : '';
+
+        let html = '<table class="data-table"><thead><tr>';
+        html += `<th onclick="dashboard.sort('name')">Source${arrow('name')}</th>`;
+        html += `<th onclick="dashboard.sort('agency')">Agency${arrow('agency')}</th>`;
+        html += `<th onclick="dashboard.sort('category')">Category${arrow('category')}</th>`;
+        html += `<th onclick="dashboard.sort('dataType')">Data Type${arrow('dataType')}</th>`;
+        html += `<th onclick="dashboard.sort('hasAPI')">API${arrow('hasAPI')}</th>`;
+        html += `<th onclick="dashboard.sort('hasGIS')">GIS${arrow('hasGIS')}</th>`;
+        html += `<th>Description</th>`;
+        html += '</tr></thead><tbody>';
+
+        data.forEach(row => {
+            const catClass = row.category === 'Federal' ? 'badge-federal' : row.category === 'California State' ? 'badge-state' : 'badge-geo';
+            html += '<tr>';
+            html += `<td><a href="${row.url}" target="_blank" rel="noopener">${row.name}</a></td>`;
+            html += `<td>${row.agency}</td>`;
+            html += `<td><span class="badge ${catClass}">${row.category}</span></td>`;
+            html += `<td>${row.dataType}</td>`;
+            html += `<td><span class="badge ${row.hasAPI === 'Yes' ? 'badge-yes' : 'badge-no'}">${row.hasAPI}</span></td>`;
+            html += `<td><span class="badge ${row.hasGIS === 'Yes' ? 'badge-yes' : 'badge-no'}">${row.hasGIS}</span></td>`;
+            html += `<td>${row.description}</td>`;
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    sort(col) {
+        if (this.sortCol === col) {
+            this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.sortCol = col;
+            this.sortDir = 'asc';
+        }
+        this.renderTable();
+    }
+
+    getSortedData() {
+        return [...this.filteredData].sort((a, b) => {
+            const av = a[this.sortCol], bv = b[this.sortCol];
+            const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+            return this.sortDir === 'asc' ? cmp : -cmp;
+        });
+    }
+
+    renderDetailCards() {
+        const categories = [
+            { id: 'federal-cards', filter: 'Federal', cssClass: 'federal' },
+            { id: 'state-cards', filter: 'California State', cssClass: 'state' },
+            { id: 'geo-cards', filter: 'Geologic-Hydro', cssClass: 'geo' }
+        ];
+
+        categories.forEach(cat => {
+            const container = document.getElementById(cat.id);
+            const sources = this.rawData.filter(r => r.category === cat.filter);
+            let html = '';
+
+            sources.forEach(src => {
+                let endpoints = '';
+                if (src.apiUrl) {
+                    endpoints += `<div class="endpoints"><strong>API:</strong> <a href="${src.apiUrl}" target="_blank" rel="noopener">${src.apiUrl}</a></div>`;
+                }
+                if (src.gisUrl) {
+                    endpoints += `<div class="endpoints"><strong>GIS:</strong> <a href="${src.gisUrl}" target="_blank" rel="noopener">${src.gisUrl}</a></div>`;
+                }
+
+                html += `<div class="detail-card ${cat.cssClass}">
+                    <h4><a href="${src.url}" target="_blank" rel="noopener">${src.name}</a></h4>
+                    <div class="agency-tag">${src.agency} &bull; ${src.dataType} &bull; API: ${src.hasAPI} &bull; GIS: ${src.hasGIS}</div>
+                    <p>${src.detail}</p>
+                    ${endpoints}
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        });
+    }
+}
+
+const dashboard = new Dashboard(DATA);
+</script>
+</body>
+</html>

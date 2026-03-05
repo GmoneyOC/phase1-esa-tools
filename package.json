@@ -1,0 +1,21 @@
+{
+  "name": "phase1-esa-tools",
+  "version": "1.0.0",
+  "description": "Phase I Environmental Site Assessment toolkit for California groundwater investigations. Interactive dashboards, report generator, and ASTM E1527-21 templates.",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve public",
+    "start": "npx serve public"
+  },
+  "keywords": [
+    "phase-1-esa",
+    "environmental-site-assessment",
+    "groundwater",
+    "hydrogeology",
+    "california",
+    "astm-e1527",
+    "geotracker",
+    "envirostor"
+  ],
+  "license": "MIT"
+}

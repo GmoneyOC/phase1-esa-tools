@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase I ESA Tools &mdash; California Groundwater Site Investigation Toolkit</title>
+    <meta name="description" content="Free Phase I Environmental Site Assessment tools for California hydrogeologists. Interactive data source dashboard, report generator, and ASTM E1527-21 templates.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
+    <style>
+        :root {
+            --primary: #1b3a5c;
+            --accent: #2a5f8f;
+            --green: #059669;
+            --orange: #d97706;
+            --blue-light: #dbeafe;
+            --green-light: #d1fae5;
+            --orange-light: #fef3c7;
+            --bg: #f0f4f8;
+            --card: #ffffff;
+            --text: #1a2332;
+            --sub: #5a6a7e;
+            --border: #d1d9e0;
+            --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+        .hero {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 60%, #1a6b4a 100%);
+            color: #fff; padding: 60px 24px 50px; text-align: center;
+        }
+        .hero h1 { font-size: 36px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+        .hero .subtitle { font-size: 18px; opacity: 0.9; max-width: 700px; margin: 0 auto 24px; }
+        .hero .badges { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .hero .badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+            background: rgba(255,255,255,0.15); backdrop-filter: blur(4px);
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+        .tools-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+            margin: -30px auto 40px; position: relative; z-index: 1;
+        }
+
+        .tool-card {
+            background: var(--card); border-radius: var(--radius); padding: 28px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column;
+        }
+        .tool-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+        .tool-card .icon-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .tool-card .icon {
+            width: 48px; height: 48px; border-radius: 10px; display: flex;
+            align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;
+        }
+        .tool-card h2 { font-size: 18px; font-weight: 700; }
+        .tool-card .desc { font-size: 14px; color: var(--sub); margin-bottom: 16px; flex: 1; }
+        .tool-card .features { list-style: none; margin-bottom: 16px; }
+        .tool-card .features li {
+            font-size: 13px; padding: 4px 0; color: var(--sub);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .tool-card .features li::before { content: "\2713"; color: var(--green); font-weight: 700; }
+        .tool-card .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 10px 18px; border-radius: 8px; text-decoration: none;
+            font-size: 14px; font-weight: 600; transition: all 0.2s; border: none; cursor: pointer;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--accent); }
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-outline:hover { background: var(--primary); color: #fff; }
+        .btn-green { background: var(--green); color: #fff; }
+        .btn-green:hover { background: #047857; }
+
+        .templates-section { margin: 40px auto 50px; }
+        .templates-section h2 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+        .templates-section .section-desc { font-size: 15px; color: var(--sub); margin-bottom: 20px; }
+
+        .template-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .template-card {
+            background: var(--card); border-radius: var(--radius); padding: 20px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06); border: 1px solid var(--border);
+            text-align: center; transition: transform 0.2s;
+        }
+        .template-card:hover { transform: translateY(-2px); }
+        .template-card .file-icon { font-size: 36px; margin-bottom: 8px; }
+        .template-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: var(--primary); }
+        .template-card .file-desc { font-size: 12px; color: var(--sub); margin-bottom: 12px; line-height: 1.4; }
+        .template-card .file-size { font-size: 11px; color: var(--sub); margin-bottom: 10px; }
+
+        .sources-section { margin: 0 auto 50px; }
+        .sources-section h2 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+        .sources-section .section-desc { font-size: 15px; color: var(--sub); margin-bottom: 20px; }
+        .source-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+        .source-stat {
+            flex: 1; min-width: 160px; background: var(--card); border-radius: var(--radius);
+            padding: 20px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .source-stat .num { font-size: 32px; font-weight: 800; color: var(--primary); }
+        .source-stat .lbl { font-size: 12px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .tech-section { margin: 0 auto 50px; }
+        .tech-section h2 { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
+        .tech-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .tech-card { background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .tech-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; color: var(--primary); }
+        .tech-card pre {
+            background: #1a2332; color: #e2e8f0; padding: 14px 16px; border-radius: 8px;
+            font-size: 13px; overflow-x: auto; line-height: 1.5;
+        }
+        .tech-card pre code { font-family: 'SF Mono', 'Fira Code', monospace; }
+        .tech-card p { font-size: 13px; color: var(--sub); margin-top: 8px; }
+
+        footer {
+            background: var(--primary); color: rgba(255,255,255,0.7); text-align: center;
+            padding: 24px; font-size: 13px;
+        }
+        footer a { color: rgba(255,255,255,0.9); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 26px; }
+            .tools-grid { grid-template-columns: 1fr; }
+            .template-grid { grid-template-columns: 1fr 1fr; }
+            .tech-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 480px) {
+            .template-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <h1>Phase I ESA Tools</h1>
+    <div class="subtitle">Free, open-source toolkit for California groundwater site investigations. Interactive dashboards, report generators, and ASTM E1527-21 templates.</div>
+    <div class="badges">
+        <span class="badge">ASTM E1527-21 / E1527-13</span>
+        <span class="badge">29 Data Sources</span>
+        <span class="badge">California Focused</span>
+        <span class="badge">100% Client-Side</span>
+    </div>
+</div>
+
+<div class="container">
+
+    <div class="tools-grid">
+        <div class="tool-card">
+            <div class="icon-row">
+                <div class="icon" style="background:#dbeafe;">&#128202;</div>
+                <h2>Data Sources Dashboard</h2>
+            </div>
+            <div class="desc">Interactive reference of 29 federal, state, and geologic databases used in California groundwater investigations. Filter by category, data type, API availability, and GIS services.</div>
+            <ul class="features">
+                <li>15 federal databases (USGS, EPA, FEMA, USDA, NOAA)</li>
+                <li>12 California state databases (GeoTracker, GAMA, EnviroStor, CASGEM)</li>
+                <li>API endpoints and GIS/WMS service URLs</li>
+                <li>Live charts and sortable, searchable table</li>
+            </ul>
+            <div class="btn-row">
+                <a href="dashboard.html" class="btn btn-primary">Open Dashboard</a>
+            </div>
+        </div>
+
+        <div class="tool-card">
+            <div class="icon-row">
+                <div class="icon" style="background:#d1fae5;">&#128221;</div>
+                <h2>Report Generator</h2>
+            </div>
+            <div class="desc">Step-by-step Phase I ESA report builder. Enter site info, track database searches with auto-dating, fill physical setting data, document RECs, and generate a formatted preview.</div>
+            <ul class="features">
+                <li>3 site types: Commercial, Agricultural, Residential</li>
+                <li>28-database checklist with search tracking</li>
+                <li>Physical setting fields (soils, flood, seismic, hydro)</li>
+                <li>Print to PDF or copy into .docx templates</li>
+            </ul>
+            <div class="btn-row">
+                <a href="generator.html" class="btn btn-green">Open Generator</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="templates-section">
+        <h2>Word Templates</h2>
+        <div class="section-desc">ASTM E1527-21 compliant Phase I ESA templates with embedded data source checklists, red placeholder fields, and signature blocks. Each template is customized for its site type.</div>
+        <div class="template-grid">
+            <div class="template-card">
+                <div class="file-icon">&#127981;</div>
+                <h3>Commercial / Industrial</h3>
+                <div class="file-desc">UST, RCRA, vapor intrusion, industrial discharge focus</div>
+                <div class="file-size">.docx &bull; 17 KB</div>
+                <a href="templates/Phase_I_ESA_Template_Commercial_Industrial.docx" class="btn btn-outline btn-sm" download>Download</a>
+            </div>
+            <div class="template-card">
+                <div class="file-icon">&#127806;</div>
+                <h3>Undeveloped / Agricultural</h3>
+                <div class="file-desc">Pesticide, ag wells, wetland delineation focus</div>
+                <div class="file-size">.docx &bull; 17 KB</div>
+                <a href="templates/Phase_I_ESA_Template_Undeveloped_Agricultural.docx" class="btn btn-outline btn-sm" download>Download</a>
+            </div>
+            <div class="template-card">
+                <div class="file-icon">&#127968;</div>
+                <h3>Residential / Mixed-Use</h3>
+                <div class="file-desc">Lead, asbestos, radon, EJScreen focus</div>
+                <div class="file-size">.docx &bull; 17 KB</div>
+                <a href="templates/Phase_I_ESA_Template_Residential_Mixed_Use.docx" class="btn btn-outline btn-sm" download>Download</a>
+            </div>
+            <div class="template-card">
+                <div class="file-icon">&#9745;</div>
+                <h3>Master Checklist</h3>
+                <div class="file-desc">Standalone 28-database checklist for any site type</div>
+                <div class="file-size">.docx &bull; 14 KB</div>
+                <a href="templates/Phase_I_ESA_Master_Data_Source_Checklist.docx" class="btn btn-outline btn-sm" download>Download</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="sources-section">
+        <h2>Data Sources at a Glance</h2>
+        <div class="section-desc">Every database a California hydrogeologist needs for site investigations, organized and linked.</div>
+        <div class="source-stats">
+            <div class="source-stat"><div class="num">29</div><div class="lbl">Total Sources</div></div>
+            <div class="source-stat"><div class="num">24</div><div class="lbl">With API Access</div></div>
+            <div class="source-stat"><div class="num">22</div><div class="lbl">With GIS / WMS</div></div>
+            <div class="source-stat"><div class="num">12</div><div class="lbl">CA State Sources</div></div>
+            <div class="source-stat"><div class="num">15</div><div class="lbl">Federal Sources</div></div>
+        </div>
+    </div>
+
+    <div class="tech-section">
+        <h2>Quick Start</h2>
+        <div class="tech-grid">
+            <div class="tech-card">
+                <h3>Deploy to Vercel</h3>
+                <pre><code>git clone https://github.com/YOUR_USER/phase1-esa-tools.git
+cd phase1-esa-tools
+npx vercel</code></pre>
+                <p>Or click "Deploy" on Vercel and point it at the repo. Zero config needed.</p>
+            </div>
+            <div class="tech-card">
+                <h3>Run Locally</h3>
+                <pre><code>git clone https://github.com/YOUR_USER/phase1-esa-tools.git
+cd phase1-esa-tools
+npx serve public</code></pre>
+                <p>No build step. All files are static HTML/JS/CSS with no dependencies.</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    Phase I ESA Tools &bull; Open Source &bull; Built for California Hydrogeologists &bull; <a href="https://github.com/YOUR_USER/phase1-esa-tools">GitHub</a>
+</footer>
+
+</body>
+</html>

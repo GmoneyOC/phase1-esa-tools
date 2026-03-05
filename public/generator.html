@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase I ESA Report Generator &amp; Data Source Tracker</title>
+    <style>
+        :root {
+            --primary: #1b3a5c;
+            --accent: #2a5f8f;
+            --green: #059669;
+            --orange: #d97706;
+            --red: #dc2626;
+            --bg: #f0f4f8;
+            --card: #ffffff;
+            --text: #1a2332;
+            --sub: #5a6a7e;
+            --border: #d1d9e0;
+            --radius: 10px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        .app { max-width: 1200px; margin: 0 auto; padding: 16px; }
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #fff; padding: 24px 28px; border-radius: var(--radius); margin-bottom: 16px;
+        }
+        .header h1 { font-size: 22px; margin-bottom: 4px; }
+        .header p { font-size: 13px; opacity: 0.85; }
+
+        .tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+        .tab {
+            padding: 10px 20px; border: 2px solid var(--border); border-radius: 8px 8px 0 0;
+            cursor: pointer; font-size: 13px; font-weight: 600; background: #e8ecf0; color: var(--sub);
+            transition: all 0.2s;
+        }
+        .tab.active { background: var(--card); color: var(--primary); border-bottom-color: var(--card); }
+        .tab:hover:not(.active) { background: #dde3e9; }
+
+        .panel { display: none; background: var(--card); border-radius: 0 var(--radius) var(--radius) var(--radius); padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+        .panel.active { display: block; }
+
+        h2 { font-size: 18px; color: var(--primary); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+        h3 { font-size: 15px; color: var(--accent); margin: 16px 0 8px; }
+        label { display: block; font-size: 13px; font-weight: 600; color: var(--sub); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+        input[type="text"], input[type="date"], input[type="number"], textarea, select {
+            width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+            font-size: 14px; margin-bottom: 12px; font-family: inherit;
+        }
+        textarea { min-height: 80px; resize: vertical; }
+        select { background: #fff; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+        .site-type-selector { display: flex; gap: 12px; margin-bottom: 20px; }
+        .site-type-btn {
+            flex: 1; padding: 16px; border: 2px solid var(--border); border-radius: var(--radius);
+            cursor: pointer; text-align: center; background: #f8fafc; transition: all 0.2s;
+        }
+        .site-type-btn:hover { border-color: var(--accent); }
+        .site-type-btn.selected { border-color: var(--primary); background: #e8f0f8; }
+        .site-type-btn .icon { font-size: 28px; margin-bottom: 6px; }
+        .site-type-btn .label { font-size: 13px; font-weight: 700; color: var(--primary); }
+        .site-type-btn .desc { font-size: 11px; color: var(--sub); margin-top: 4px; }
+
+        .checklist-section { margin-bottom: 20px; }
+        .checklist-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 14px; border-radius: 8px; cursor: pointer; margin-bottom: 8px;
+        }
+        .checklist-header.federal { background: #dbeafe; color: #1e40af; }
+        .checklist-header.state { background: #fef3c7; color: #92400e; }
+        .checklist-header.geo { background: #d1fae5; color: #065f46; }
+        .checklist-header .count { font-size: 12px; font-weight: 700; }
+
+        .checklist-item {
+            display: grid; grid-template-columns: 30px 1fr 200px 120px;
+            align-items: center; padding: 8px 12px; border-bottom: 1px solid #f0f2f5;
+            font-size: 13px; gap: 8px;
+        }
+        .checklist-item:hover { background: #f8fafc; }
+        .checklist-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin: 0; }
+        .checklist-item a { color: var(--accent); text-decoration: none; font-weight: 500; }
+        .checklist-item a:hover { text-decoration: underline; }
+        .checklist-item .data-desc { color: var(--sub); font-size: 12px; }
+        .checklist-item input[type="date"] { margin: 0; padding: 4px 8px; font-size: 12px; }
+        .checklist-item select { margin: 0; padding: 4px 6px; font-size: 12px; }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .badge-api { background: #d1fae5; color: #065f46; }
+        .badge-gis { background: #dbeafe; color: #1e40af; }
+
+        .rec-entry { background: #fafbfc; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+        .rec-entry h4 { font-size: 14px; color: var(--primary); margin-bottom: 8px; }
+
+        .btn {
+            padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer;
+            font-size: 14px; font-weight: 600; transition: all 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--accent); }
+        .btn-green { background: var(--green); color: #fff; }
+        .btn-green:hover { background: #047857; }
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-outline:hover { background: var(--primary); color: #fff; }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+        .actions { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+
+        .preview-container {
+            background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 32px 40px; max-width: 900px; margin: 0 auto; font-family: 'Times New Roman', Times, serif;
+            font-size: 12pt; line-height: 1.8;
+        }
+        .preview-container h1 { font-family: Arial, sans-serif; font-size: 18pt; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 6px; margin: 20px 0 12px; }
+        .preview-container h2 { font-family: Arial, sans-serif; font-size: 14pt; color: var(--accent); margin: 16px 0 8px; }
+        .preview-container h3 { font-family: Arial, sans-serif; font-size: 12pt; color: var(--text); margin: 12px 0 6px; }
+        .preview-container p { margin-bottom: 10px; text-align: justify; }
+        .preview-container .placeholder { color: var(--red); font-style: italic; font-weight: bold; }
+        .preview-container table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10pt; }
+        .preview-container th { background: var(--primary); color: #fff; padding: 8px 10px; text-align: left; font-family: Arial, sans-serif; font-size: 9pt; text-transform: uppercase; }
+        .preview-container td { padding: 6px 10px; border: 1px solid #d1d9e0; }
+        .preview-container tr:nth-child(even) td { background: #f8fafc; }
+        .preview-container ul { margin: 8px 0 8px 24px; }
+        .preview-container li { margin-bottom: 4px; }
+        .preview-container .cover { text-align: center; padding: 60px 0 40px; }
+        .preview-container .cover h1 { border: none; font-size: 28pt; color: var(--primary); }
+        .preview-container .cover .subtitle { font-size: 16pt; color: var(--accent); font-family: Arial, sans-serif; }
+        .preview-container .cover .info-table { max-width: 400px; margin: 30px auto; text-align: left; }
+        .preview-container .cover .info-table td { font-family: Arial, sans-serif; font-size: 11pt; }
+        .preview-container .cover .info-table td:first-child { font-weight: bold; color: var(--primary); padding-right: 16px; }
+        .preview-container .sig-line { border-bottom: 1px solid #000; width: 250px; display: inline-block; margin: 20px 16px 4px 0; }
+        .preview-container .checked-db { color: var(--green); }
+        .preview-container .unchecked-db { color: var(--sub); text-decoration: line-through; }
+
+        .progress-bar { display: flex; gap: 4px; margin-bottom: 16px; }
+        .progress-step {
+            flex: 1; height: 6px; border-radius: 3px; background: #e2e8f0; transition: background 0.3s;
+        }
+        .progress-step.done { background: var(--green); }
+        .progress-step.active { background: var(--accent); }
+
+        .stats-row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+        .stat-card { flex: 1; min-width: 140px; background: #f8fafc; border-radius: 8px; padding: 12px 16px; text-align: center; }
+        .stat-card .num { font-size: 24px; font-weight: 700; color: var(--primary); }
+        .stat-card .lbl { font-size: 11px; color: var(--sub); text-transform: uppercase; }
+
+        @media print {
+            .tabs, .header, .actions, .tab, .btn, .form-row, .form-row-3, label, input, textarea, select, .site-type-selector, .progress-bar, .stats-row { display: none !important; }
+            .panel { display: block !important; border: none; box-shadow: none; padding: 0; }
+            .panel:not(#panel-preview) { display: none !important; }
+            #panel-preview { display: block !important; }
+            .preview-container { border: none; padding: 0; max-width: 100%; }
+        }
+        @media (max-width: 700px) {
+            .form-row, .form-row-3 { grid-template-columns: 1fr; }
+            .site-type-selector { flex-direction: column; }
+            .checklist-item { grid-template-columns: 30px 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="header">
+        <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.8);text-decoration:none;font-size:13px;padding:6px 14px;border-radius:6px;background:rgba(255,255,255,0.1);margin-bottom:10px;">&larr; Back to Toolkit</a>
+        <h1>Phase I ESA Report Generator &amp; Data Source Tracker</h1>
+        <p>Enter site information, track database searches, and generate formatted report sections. Works with the companion .docx templates.</p>
+    </div>
+
+    <div class="progress-bar">
+        <div class="progress-step" id="prog-1"></div>
+        <div class="progress-step" id="prog-2"></div>
+        <div class="progress-step" id="prog-3"></div>
+        <div class="progress-step" id="prog-4"></div>
+        <div class="progress-step" id="prog-5"></div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="showTab('site')">1. Site Info</div>
+        <div class="tab" onclick="showTab('databases')">2. Database Searches</div>
+        <div class="tab" onclick="showTab('physical')">3. Physical Setting</div>
+        <div class="tab" onclick="showTab('findings')">4. Findings</div>
+        <div class="tab" onclick="showTab('preview')">5. Report Preview</div>
+    </div>
+
+    <!-- TAB 1: SITE INFO -->
+    <div class="panel active" id="panel-site">
+        <h2>Site Information</h2>
+        <h3>Select Site Type</h3>
+        <div class="site-type-selector">
+            <div class="site-type-btn" onclick="selectSiteType('commercial', this)">
+                <div class="icon">&#127981;</div>
+                <div class="label">Commercial / Industrial</div>
+                <div class="desc">Gas stations, dry cleaners, manufacturing, auto shops</div>
+            </div>
+            <div class="site-type-btn" onclick="selectSiteType('agricultural', this)">
+                <div class="icon">&#127806;</div>
+                <div class="label">Undeveloped / Agricultural</div>
+                <div class="desc">Vacant land, farms, proposed development</div>
+            </div>
+            <div class="site-type-btn" onclick="selectSiteType('residential', this)">
+                <div class="icon">&#127968;</div>
+                <div class="label">Residential / Mixed-Use</div>
+                <div class="desc">Housing, mixed-use, infill redevelopment</div>
+            </div>
+        </div>
+
+        <h3>Property Details</h3>
+        <div class="form-row">
+            <div><label>Site Name</label><input type="text" id="siteName" placeholder="e.g., Former Smith Auto Body"></div>
+            <div><label>Site Address</label><input type="text" id="siteAddress" placeholder="123 Main St, City, CA 90000"></div>
+        </div>
+        <div class="form-row-3">
+            <div><label>APN</label><input type="text" id="apn" placeholder="000-000-000"></div>
+            <div><label>Latitude</label><input type="text" id="lat" placeholder="34.0522"></div>
+            <div><label>Longitude</label><input type="text" id="lng" placeholder="-118.2437"></div>
+        </div>
+        <div class="form-row">
+            <div><label>Total Acreage</label><input type="text" id="acreage" placeholder="e.g., 2.5"></div>
+            <div><label>Current Zoning</label><input type="text" id="zoning" placeholder="e.g., M-1 Light Industrial"></div>
+        </div>
+        <h3>Client &amp; Project</h3>
+        <div class="form-row-3">
+            <div><label>Client Name</label><input type="text" id="clientName" placeholder=""></div>
+            <div><label>Project Number</label><input type="text" id="projectNo" placeholder=""></div>
+            <div><label>Report Date</label><input type="date" id="reportDate"></div>
+        </div>
+        <div class="form-row">
+            <div><label>Prepared By</label><input type="text" id="preparedBy" placeholder="Consultant name/firm"></div>
+            <div><label>ASTM Standard</label>
+                <select id="astmStandard">
+                    <option value="E1527-21">ASTM E1527-21</option>
+                    <option value="E1527-13">ASTM E1527-13</option>
+                    <option value="E1527-21 / E1527-13">Both E1527-21 &amp; E1527-13</option>
+                </select>
+            </div>
+        </div>
+        <h3>Site Description</h3>
+        <label>Current Use Description</label>
+        <textarea id="currentUse" placeholder="Describe current site operations, structures, and activities..."></textarea>
+        <label>Adjoining Properties (N/S/E/W)</label>
+        <textarea id="adjoining" placeholder="North: ..., South: ..., East: ..., West: ..."></textarea>
+
+        <div class="actions">
+            <button class="btn btn-primary" onclick="showTab('databases')">Next: Database Searches &rarr;</button>
+        </div>
+    </div>
+
+    <!-- TAB 2: DATABASE SEARCHES -->
+    <div class="panel" id="panel-databases">
+        <h2>Database Investigation Checklist</h2>
+        <p style="font-size:13px;color:var(--sub);margin-bottom:16px;">Check each database as you search it. All names link directly to the source. Dates auto-fill when checked.</p>
+
+        <div class="stats-row">
+            <div class="stat-card"><div class="num" id="stat-total">0</div><div class="lbl">Total Checked</div></div>
+            <div class="stat-card"><div class="num" id="stat-federal">0</div><div class="lbl">Federal</div></div>
+            <div class="stat-card"><div class="num" id="stat-state">0</div><div class="lbl">CA State</div></div>
+            <div class="stat-card"><div class="num" id="stat-percent">0%</div><div class="lbl">Complete</div></div>
+        </div>
+
+        <div class="checklist-section">
+            <div class="checklist-header federal" onclick="toggleChecklist('federal-list')">
+                <span><strong>Federal Databases</strong> (15 sources)</span>
+                <span class="count" id="federal-count">0 / 15</span>
+            </div>
+            <div id="federal-list"></div>
+        </div>
+        <div class="checklist-section">
+            <div class="checklist-header state" onclick="toggleChecklist('state-list')">
+                <span><strong>California State Databases</strong> (13 sources)</span>
+                <span class="count" id="state-count">0 / 13</span>
+            </div>
+            <div id="state-list"></div>
+        </div>
+
+        <h3>Notes on Database Findings</h3>
+        <textarea id="dbNotes" placeholder="Summarize key findings from database searches..."></textarea>
+
+        <div class="actions">
+            <button class="btn btn-outline" onclick="showTab('site')">&larr; Back</button>
+            <button class="btn btn-primary" onclick="showTab('physical')">Next: Physical Setting &rarr;</button>
+        </div>
+    </div>
+
+    <!-- TAB 3: PHYSICAL SETTING -->
+    <div class="panel" id="panel-physical">
+        <h2>Physical Setting &amp; Hydrogeology</h2>
+        <div class="form-row">
+            <div><label>Elevation (ft MSL)</label><input type="text" id="elevation" placeholder="e.g., 450"></div>
+            <div><label>Slope / Drainage Direction</label><input type="text" id="slope" placeholder="e.g., Gently sloping to the southwest"></div>
+        </div>
+        <label>Geology Description</label>
+        <textarea id="geology" placeholder="Describe local geology from CGS maps..."></textarea>
+        <div class="form-row-3">
+            <div><label>Depth to Groundwater (ft bgs)</label><input type="text" id="gwDepth" placeholder="e.g., 35"></div>
+            <div><label>GW Flow Direction</label><input type="text" id="gwFlow" placeholder="e.g., South-southwest"></div>
+            <div><label>Aquifer Type</label>
+                <select id="aquiferType">
+                    <option value="">Select...</option>
+                    <option value="Unconfined alluvial">Unconfined alluvial</option>
+                    <option value="Semi-confined alluvial">Semi-confined alluvial</option>
+                    <option value="Confined">Confined</option>
+                    <option value="Fractured bedrock">Fractured bedrock</option>
+                    <option value="Perched">Perched</option>
+                </select>
+            </div>
+        </div>
+        <label>Hydrogeology Notes (NWIS, CASGEM, WCR data)</label>
+        <textarea id="hydroNotes" placeholder="Summarize groundwater data from NWIS, CASGEM, GAMA, Well Completion Reports..."></textarea>
+        <div class="form-row">
+            <div><label>Soil Type (Web Soil Survey)</label><input type="text" id="soilType" placeholder="e.g., Hanford sandy loam"></div>
+            <div><label>Hydrologic Soil Group</label>
+                <select id="soilGroup">
+                    <option value="">Select...</option>
+                    <option value="A - High infiltration">A - High infiltration</option>
+                    <option value="B - Moderate infiltration">B - Moderate infiltration</option>
+                    <option value="C - Slow infiltration">C - Slow infiltration</option>
+                    <option value="D - Very slow infiltration">D - Very slow infiltration</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div><label>FEMA Flood Zone</label>
+                <select id="floodZone">
+                    <option value="">Select...</option>
+                    <option value="Zone X - Minimal flood hazard">Zone X - Minimal</option>
+                    <option value="Zone X (shaded) - 0.2% annual chance">Zone X (shaded) - 500-yr</option>
+                    <option value="Zone AE - 1% annual chance (100-yr)">Zone AE - 100-yr</option>
+                    <option value="Zone A - 1% annual chance, no BFE">Zone A - 100-yr (no BFE)</option>
+                    <option value="Zone AO - Sheet flow">Zone AO - Sheet flow</option>
+                    <option value="Zone VE - Coastal flood">Zone VE - Coastal</option>
+                </select>
+            </div>
+            <div><label>Seismic Hazard Zone (CGS)</label>
+                <select id="seismicZone">
+                    <option value="">Select...</option>
+                    <option value="None mapped">None mapped</option>
+                    <option value="Liquefaction zone">Liquefaction zone</option>
+                    <option value="Earthquake-induced landslide zone">Landslide zone</option>
+                    <option value="Both liquefaction and landslide">Both</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div><label>Wetlands (NWI)</label>
+                <select id="wetlands">
+                    <option value="None identified on or adjacent to site">None identified</option>
+                    <option value="Wetlands present on site">Present on site</option>
+                    <option value="Wetlands adjacent to site">Adjacent to site</option>
+                </select>
+            </div>
+            <div><label>Mean Annual Precipitation (in)</label><input type="text" id="precip" placeholder="e.g., 15.2"></div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-outline" onclick="showTab('databases')">&larr; Back</button>
+            <button class="btn btn-primary" onclick="showTab('findings')">Next: Findings &rarr;</button>
+        </div>
+    </div>
+
+    <!-- TAB 4: FINDINGS -->
+    <div class="panel" id="panel-findings">
+        <h2>Findings &amp; Environmental Conditions</h2>
+
+        <h3>Recognized Environmental Conditions (RECs)</h3>
+        <div id="rec-list"></div>
+        <button class="btn btn-sm btn-outline" onclick="addREC()">+ Add REC</button>
+
+        <h3 style="margin-top:20px;">Controlled RECs (CRECs)</h3>
+        <textarea id="crecs" placeholder="Describe CRECs or state 'No CRECs were identified.'"></textarea>
+
+        <h3>Historical RECs (HRECs)</h3>
+        <textarea id="hrecs" placeholder="Describe HRECs or state 'No HRECs were identified.'"></textarea>
+
+        <h3>De Minimis Conditions</h3>
+        <textarea id="deminimis" placeholder="Describe de minimis conditions or state 'No de minimis conditions were identified.'"></textarea>
+
+        <h3>Data Gaps</h3>
+        <textarea id="dataGaps" placeholder="Document any significant data gaps per ASTM E1527-21 Section 12."></textarea>
+
+        <h3>Overall Conclusion</h3>
+        <textarea id="conclusion" placeholder="Summarize overall conclusions and recommendations..."></textarea>
+
+        <div class="actions">
+            <button class="btn btn-outline" onclick="showTab('physical')">&larr; Back</button>
+            <button class="btn btn-green" onclick="generatePreview()">Generate Report Preview &rarr;</button>
+        </div>
+    </div>
+
+    <!-- TAB 5: PREVIEW -->
+    <div class="panel" id="panel-preview">
+        <h2>Report Preview</h2>
+        <p style="font-size:13px;color:var(--sub);margin-bottom:16px;">This preview shows your report content formatted for review. Use Ctrl+P to print or save as PDF. Copy sections into the .docx template for final delivery.</p>
+        <div class="actions" style="margin-bottom:16px;">
+            <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+            <button class="btn btn-outline" onclick="copyToClipboard()">Copy All Text</button>
+        </div>
+        <div class="preview-container" id="report-output"></div>
+        <div class="actions">
+            <button class="btn btn-outline" onclick="showTab('findings')">&larr; Back to Edit</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const FEDERAL_DBS = [
+    { name: "USGS NWIS", url: "https://waterdata.usgs.gov/nwis/", desc: "Groundwater levels, water quality", api: true, gis: true },
+    { name: "USGS Water Data APIs", url: "https://api.waterdata.usgs.gov/", desc: "Real-time sensor data, daily values", api: true, gis: true },
+    { name: "USGS StreamStats", url: "https://streamstats.usgs.gov/ss/", desc: "Basin characteristics, flood frequency", api: true, gis: true },
+    { name: "USGS 3DEP", url: "https://www.usgs.gov/3d-elevation-program", desc: "DEMs, LiDAR, elevation", api: true, gis: true },
+    { name: "EPA ECHO", url: "https://echo.epa.gov/", desc: "Compliance, violations, enforcement", api: true, gis: true },
+    { name: "EPA Envirofacts", url: "https://enviro.epa.gov/", desc: "Integrated RCRA/CERCLIS/SDWA/TRI", api: true, gis: false },
+    { name: "Superfund (CERCLIS/SEMS)", url: "https://www.epa.gov/superfund/search-superfund-sites-where-you-live", desc: "NPL sites, remedial actions", api: true, gis: true },
+    { name: "RCRAInfo", url: "https://rcrapublic.epa.gov/rcra-hwip/", desc: "Hazardous waste handlers, TSDFs", api: true, gis: true },
+    { name: "UST Finder", url: "https://www.epa.gov/land-research/underground-storage-tank-ust-finder", desc: "Active/closed USTs, releases", api: true, gis: true },
+    { name: "Water Quality Portal", url: "https://www.waterqualitydata.us/", desc: "Combined USGS+EPA water quality", api: true, gis: false },
+    { name: "EJScreen", url: "https://www.epa.gov/ejscreen", desc: "Environmental justice indicators", api: true, gis: true },
+    { name: "FEMA NFHL", url: "https://msc.fema.gov/", desc: "Flood hazard zones, BFEs", api: true, gis: true },
+    { name: "Web Soil Survey", url: "https://websoilsurvey.nrcs.usda.gov/app/", desc: "SSURGO soil properties", api: true, gis: true },
+    { name: "National Wetlands Inventory", url: "https://www.fws.gov/program/national-wetlands-inventory", desc: "Wetland classification", api: true, gis: true },
+    { name: "NOAA Climate Data", url: "https://www.ncei.noaa.gov/cdo-web/", desc: "Precipitation, temperature", api: true, gis: false },
+];
+
+const STATE_DBS = [
+    { name: "GeoTracker", url: "https://geotracker.waterboards.ca.gov/", desc: "LUST, cleanup sites, analytical data", api: true, gis: true },
+    { name: "GAMA", url: "https://www.waterboards.ca.gov/gama/", desc: "GW quality, 290K+ wells", api: true, gis: true },
+    { name: "EnviroStor", url: "https://www.envirostor.dtsc.ca.gov/public/", desc: "Hazardous waste sites", api: true, gis: true },
+    { name: "Cortese List", url: "https://dtsc.ca.gov/dtscs-cortese-list/", desc: "CEQA hazmat release sites", api: false, gis: false },
+    { name: "CASGEM", url: "https://water.ca.gov/programs/groundwater-management/groundwater-elevation-monitoring--casgem", desc: "GW elevation monitoring", api: true, gis: true },
+    { name: "SGMA Data Viewer", url: "https://water.ca.gov/programs/groundwater-management/data-and-tools", desc: "Sustainability plans, GSA data", api: true, gis: true },
+    { name: "Well Completion Reports", url: "https://water.ca.gov/Programs/Groundwater-Management/Wells/Well-Completion-Reports", desc: "800K+ well construction logs", api: true, gis: true },
+    { name: "CGS Geologic Hazards", url: "https://maps.conservation.ca.gov/geologichazards/", desc: "Faults, liquefaction, landslides", api: true, gis: true },
+    { name: "CGS Seismic Hazard Maps", url: "https://www.conservation.ca.gov/cgs/shma", desc: "Seismic hazard zones", api: true, gis: true },
+    { name: "CERS", url: "https://cers.calepa.ca.gov/", desc: "Hazmat inventory data", api: true, gis: false },
+    { name: "CA State Geoportal", url: "https://gis.data.ca.gov/", desc: "Central GIS data hub", api: true, gis: true },
+    { name: "PFAS Program", url: "https://www.waterboards.ca.gov/pfas/", desc: "PFAS contamination data", api: false, gis: false },
+    { name: "CA SoilWeb", url: "https://casoilresource.lawr.ucdavis.edu/gmap/", desc: "CA-specific soil mapping", api: false, gis: true },
+];
+
+let siteType = "";
+let recCount = 0;
+
+// ============================================================
+// TAB NAVIGATION
+// ============================================================
+function showTab(id) {
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("panel-" + id).classList.add("active");
+    const tabMap = { site: 0, databases: 1, physical: 2, findings: 3, preview: 4 };
+    document.querySelectorAll(".tab")[tabMap[id]].classList.add("active");
+    updateProgress();
+    if (id === "preview") generatePreview();
+}
+
+function updateProgress() {
+    const steps = ["prog-1","prog-2","prog-3","prog-4","prog-5"];
+    const active = document.querySelector(".tab.active");
+    const idx = [...document.querySelectorAll(".tab")].indexOf(active);
+    steps.forEach((s, i) => {
+        const el = document.getElementById(s);
+        el.classList.remove("done", "active");
+        if (i < idx) el.classList.add("done");
+        else if (i === idx) el.classList.add("active");
+    });
+}
+
+// ============================================================
+// SITE TYPE
+// ============================================================
+function selectSiteType(type, el) {
+    siteType = type;
+    document.querySelectorAll(".site-type-btn").forEach(b => b.classList.remove("selected"));
+    el.classList.add("selected");
+}
+
+// ============================================================
+// CHECKLISTS
+// ============================================================
+function renderChecklists() {
+    renderChecklistGroup("federal-list", FEDERAL_DBS, "fed");
+    renderChecklistGroup("state-list", STATE_DBS, "st");
+}
+
+function renderChecklistGroup(containerId, dbs, prefix) {
+    const container = document.getElementById(containerId);
+    let html = "";
+    dbs.forEach((db, i) => {
+        const id = `${prefix}-${i}`;
+        const badges = [];
+        if (db.api) badges.push('<span class="badge badge-api">API</span>');
+        if (db.gis) badges.push('<span class="badge badge-gis">GIS</span>');
+        html += `<div class="checklist-item">
+            <input type="checkbox" id="${id}" onchange="onCheck('${id}')">
+            <div>
+                <a href="${db.url}" target="_blank" rel="noopener">${db.name}</a> ${badges.join(" ")}
+                <div class="data-desc">${db.desc}</div>
+            </div>
+            <select id="${id}-finding" style="font-size:12px;">
+                <option value="">Finding...</option>
+                <option value="No listings">No listings</option>
+                <option value="Listings found - reviewed">Listings found - reviewed</option>
+                <option value="Site listed">Site listed</option>
+                <option value="Adjacent site listed">Adjacent site listed</option>
+                <option value="Not searched">Not searched</option>
+            </select>
+            <input type="date" id="${id}-date" style="font-size:12px;">
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function onCheck(id) {
+    const cb = document.getElementById(id);
+    const dateField = document.getElementById(id + "-date");
+    if (cb.checked && !dateField.value) {
+        dateField.value = new Date().toISOString().split("T")[0];
+    }
+    updateStats();
+}
+
+function toggleChecklist(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+function updateStats() {
+    let fedChecked = 0, stChecked = 0;
+    FEDERAL_DBS.forEach((_, i) => { if (document.getElementById(`fed-${i}`).checked) fedChecked++; });
+    STATE_DBS.forEach((_, i) => { if (document.getElementById(`st-${i}`).checked) stChecked++; });
+    const total = fedChecked + stChecked;
+    const allTotal = FEDERAL_DBS.length + STATE_DBS.length;
+    document.getElementById("stat-total").textContent = total;
+    document.getElementById("stat-federal").textContent = fedChecked;
+    document.getElementById("stat-state").textContent = stChecked;
+    document.getElementById("stat-percent").textContent = Math.round((total / allTotal) * 100) + "%";
+    document.getElementById("federal-count").textContent = `${fedChecked} / ${FEDERAL_DBS.length}`;
+    document.getElementById("state-count").textContent = `${stChecked} / ${STATE_DBS.length}`;
+}
+
+// ============================================================
+// RECs
+// ============================================================
+function addREC() {
+    recCount++;
+    const container = document.getElementById("rec-list");
+    const div = document.createElement("div");
+    div.className = "rec-entry";
+    div.innerHTML = `<h4>REC-${recCount}</h4>
+        <label>Description</label><textarea id="rec-${recCount}-desc" placeholder="Describe the recognized environmental condition..."></textarea>
+        <div class="form-row">
+            <div><label>Basis (source)</label><input type="text" id="rec-${recCount}-basis" placeholder="e.g., GeoTracker LUST case, soil staining observed"></div>
+            <div><label>Recommendation</label><input type="text" id="rec-${recCount}-rec" placeholder="e.g., Phase II ESA recommended"></div>
+        </div>`;
+    container.appendChild(div);
+}
+
+// ============================================================
+// REPORT PREVIEW
+// ============================================================
+function val(id) { return document.getElementById(id)?.value || ""; }
+
+function generatePreview() {
+    const siteLabel = siteType === "commercial" ? "Commercial / Industrial"
+        : siteType === "agricultural" ? "Undeveloped / Agricultural"
+        : siteType === "residential" ? "Residential / Mixed-Use" : "Not Selected";
+
+    let html = `<div class="cover">
+        <h1>PHASE I<br>ENVIRONMENTAL SITE ASSESSMENT</h1>
+        <div class="subtitle">${siteLabel} Site</div>
+        <table class="info-table"><tbody>
+            <tr><td>Site Name:</td><td>${val("siteName") || "[SITE NAME]"}</td></tr>
+            <tr><td>Address:</td><td>${val("siteAddress") || "[ADDRESS]"}</td></tr>
+            <tr><td>APN:</td><td>${val("apn") || "[APN]"}</td></tr>
+            <tr><td>Client:</td><td>${val("clientName") || "[CLIENT]"}</td></tr>
+            <tr><td>Prepared By:</td><td>${val("preparedBy") || "[CONSULTANT]"}</td></tr>
+            <tr><td>Date:</td><td>${val("reportDate") || "[DATE]"}</td></tr>
+            <tr><td>Project No.:</td><td>${val("projectNo") || "[PROJECT #]"}</td></tr>
+            <tr><td>Standard:</td><td>${val("astmStandard")}</td></tr>
+        </tbody></table>
+    </div>
+    <hr>`;
+
+    // Executive Summary
+    html += `<h1>1.0 Executive Summary</h1>
+    <p>This Phase I Environmental Site Assessment was conducted for the ${siteLabel.toLowerCase()} property located at ${val("siteAddress") || "[ADDRESS]"} in accordance with ${val("astmStandard")}.</p>`;
+
+    // RECs summary
+    if (recCount > 0) {
+        html += `<p>The following Recognized Environmental Conditions (RECs) were identified:</p><ul>`;
+        for (let i = 1; i <= recCount; i++) {
+            const desc = val(`rec-${i}-desc`);
+            if (desc) html += `<li><strong>REC-${i}:</strong> ${desc}</li>`;
+        }
+        html += `</ul>`;
+    } else {
+        html += `<p class="placeholder">[No RECs have been entered. Add RECs in the Findings tab.]</p>`;
+    }
+
+    // CRECs, HRECs
+    html += `<p><strong>CRECs:</strong> ${val("crecs") || "None identified."}</p>`;
+    html += `<p><strong>HRECs:</strong> ${val("hrecs") || "None identified."}</p>`;
+
+    // Site Description
+    html += `<h1>3.0 Site Description</h1>
+    <p><strong>Location:</strong> ${val("siteAddress") || "[ADDRESS]"}, APN: ${val("apn") || "[APN]"}</p>
+    <p><strong>Coordinates:</strong> ${val("lat") || "[LAT]"}, ${val("lng") || "[LONG]"}</p>
+    <p><strong>Acreage:</strong> ${val("acreage") || "[ACREAGE]"} acres | <strong>Zoning:</strong> ${val("zoning") || "[ZONING]"}</p>
+    <p><strong>Current Use:</strong> ${val("currentUse") || '<span class="placeholder">[Describe current use]</span>'}</p>
+    <p><strong>Adjoining Properties:</strong> ${val("adjoining") || '<span class="placeholder">[Describe adjoining uses]</span>'}</p>`;
+
+    // Records Review - Database Checklist
+    html += `<h1>5.0 Records Review</h1>
+    <h2>5.1 Database Search Summary</h2>
+    <table><thead><tr><th>Database</th><th>Category</th><th>Finding</th><th>Date Searched</th></tr></thead><tbody>`;
+
+    FEDERAL_DBS.forEach((db, i) => {
+        const checked = document.getElementById(`fed-${i}`).checked;
+        const finding = val(`fed-${i}-finding`) || (checked ? "Reviewed" : "Not searched");
+        const date = val(`fed-${i}-date`) || "";
+        const cls = checked ? "checked-db" : "unchecked-db";
+        html += `<tr><td class="${cls}">${db.name}</td><td>Federal</td><td>${finding}</td><td>${date}</td></tr>`;
+    });
+    STATE_DBS.forEach((db, i) => {
+        const checked = document.getElementById(`st-${i}`).checked;
+        const finding = val(`st-${i}-finding`) || (checked ? "Reviewed" : "Not searched");
+        const date = val(`st-${i}-date`) || "";
+        const cls = checked ? "checked-db" : "unchecked-db";
+        html += `<tr><td class="${cls}">${db.name}</td><td>CA State</td><td>${finding}</td><td>${date}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+
+    if (val("dbNotes")) {
+        html += `<h2>5.2 Database Findings Summary</h2><p>${val("dbNotes")}</p>`;
+    }
+
+    // Physical Setting
+    html += `<h1>6.0 Physical Setting</h1>
+    <h2>6.1 Topography</h2>
+    <p>The subject property is located at an elevation of approximately ${val("elevation") || "[ELEVATION]"} feet above mean sea level. ${val("slope") || '<span class="placeholder">[Describe slope/drainage]</span>'}</p>
+    <h2>6.2 Geology</h2>
+    <p>${val("geology") || '<span class="placeholder">[Describe geology from CGS maps]</span>'}</p>
+    <h2>6.3 Hydrogeology</h2>
+    <p>Depth to groundwater is approximately ${val("gwDepth") || "[DEPTH]"} feet below ground surface. Groundwater flow direction is ${val("gwFlow") || "[DIRECTION]"}. The aquifer is characterized as ${val("aquiferType") || "[TYPE]"}.</p>
+    <p>${val("hydroNotes") || '<span class="placeholder">[Add hydrogeology notes from NWIS, CASGEM, GAMA]</span>'}</p>
+    <h2>6.4 Soils</h2>
+    <p>Per the USDA Web Soil Survey, site soils are mapped as ${val("soilType") || "[SOIL TYPE]"}, Hydrologic Soil Group ${val("soilGroup") || "[GROUP]"}.</p>
+    <h2>6.5 Flood Hazards</h2>
+    <p>Per FEMA NFHL mapping, the site is located in ${val("floodZone") || "[FLOOD ZONE]"}.</p>
+    <h2>6.6 Seismic Hazards</h2>
+    <p>Per CGS Seismic Hazard Maps: ${val("seismicZone") || "[SEISMIC ZONE]"}.</p>
+    <h2>6.7 Wetlands</h2>
+    <p>Per the National Wetlands Inventory: ${val("wetlands") || "[WETLANDS STATUS]"}.</p>
+    <h2>6.8 Climate</h2>
+    <p>Mean annual precipitation is approximately ${val("precip") || "[PRECIP]"} inches (NOAA Climate Data Online).</p>`;
+
+    // Findings
+    html += `<h1>9.0 Findings and Opinions</h1>`;
+    if (recCount > 0) {
+        html += `<h2>9.1 Recognized Environmental Conditions</h2>
+        <table><thead><tr><th>REC #</th><th>Description</th><th>Basis</th><th>Recommendation</th></tr></thead><tbody>`;
+        for (let i = 1; i <= recCount; i++) {
+            html += `<tr><td>REC-${i}</td><td>${val(`rec-${i}-desc`) || "[Description]"}</td><td>${val(`rec-${i}-basis`) || "[Basis]"}</td><td>${val(`rec-${i}-rec`) || "[Recommendation]"}</td></tr>`;
+        }
+        html += `</tbody></table>`;
+    } else {
+        html += `<h2>9.1 Recognized Environmental Conditions</h2><p>No RECs were identified during this assessment.</p>`;
+    }
+
+    html += `<h2>9.2 Controlled RECs</h2><p>${val("crecs") || "No CRECs were identified."}</p>`;
+    html += `<h2>9.3 Historical RECs</h2><p>${val("hrecs") || "No HRECs were identified."}</p>`;
+    html += `<h2>9.4 De Minimis Conditions</h2><p>${val("deminimis") || "No de minimis conditions were identified."}</p>`;
+    html += `<h2>9.5 Data Gaps</h2><p>${val("dataGaps") || '<span class="placeholder">[Document data gaps]</span>'}</p>`;
+
+    // Conclusions
+    html += `<h1>10.0 Conclusions and Recommendations</h1>
+    <p>${val("conclusion") || '<span class="placeholder">[Enter overall conclusions and recommendations]</span>'}</p>
+    <h2>10.1 Environmental Professional Statement</h2>
+    <p>I declare that, to the best of my professional knowledge and belief, I meet the definition of Environmental Professional as defined in 40 CFR Part 312.10.</p>
+    <p><span class="sig-line">&nbsp;</span> <span class="sig-line">&nbsp;</span></p>
+    <p style="font-size:10pt;color:var(--sub);">Environmental Professional Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</p>`;
+
+    document.getElementById("report-output").innerHTML = html;
+}
+
+function copyToClipboard() {
+    const el = document.getElementById("report-output");
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand("copy");
+    sel.removeAllRanges();
+    alert("Report text copied to clipboard!");
+}
+
+// ============================================================
+// INIT
+// ============================================================
+renderChecklists();
+updateStats();
+updateProgress();
+document.getElementById("reportDate").value = new Date().toISOString().split("T")[0];
+</script>
+</body>
+</html>
