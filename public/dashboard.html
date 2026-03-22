@@ -79,7 +79,7 @@
         .kpi-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
         .kpi-value { font-size: 32px; font-weight: 700; }
         .chart-row {
-            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            display: grid; grid-template-columns: 1fr 1fr;
             gap: var(--gap); margin-bottom: var(--gap);
         }
         .chart-container {
@@ -116,6 +116,15 @@
         .badge-federal { background: #dbeafe; color: #1e40af; }
         .badge-state { background: #fef3c7; color: #92400e; }
         .badge-geo { background: #d1fae5; color: #065f46; }
+        .status-dot {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            margin-right: 4px; vertical-align: middle;
+        }
+        .status-online .status-dot { background: #10b981; }
+        .status-offline .status-dot { background: #ef4444; }
+        .status-unknown .status-dot { background: #9ca3af; }
+        .status-checking .status-dot { background: #fbbf24; animation: pulse-dot 1s ease-in-out infinite; }
+        @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
         .detail-section { margin-bottom: var(--gap); }
         .detail-section h2 {
             font-size: 18px; font-weight: 700; margin-bottom: 12px;
@@ -245,6 +254,7 @@
         <div class="chart-container"><h3>Sources by Agency</h3><canvas id="chart-agency"></canvas></div>
         <div class="chart-container"><h3>Sources by Data Type</h3><canvas id="chart-datatype"></canvas></div>
         <div class="chart-container"><h3>API &amp; GIS Availability</h3><canvas id="chart-availability"></canvas></div>
+        <div class="chart-container"><h3>Agency Capability Radar</h3><canvas id="chart-radar"></canvas></div>
     </section>
 
     <section class="map-section">
@@ -695,16 +705,20 @@ class Dashboard {
         this.charts = {};
         this.sortCol = null;
         this.sortDir = 'asc';
+        this.statusCache = {};
         this.init();
 
         // Debounce the search input (replace inline oninput with 300ms debounce)
         var self = this;
         var searchEl = document.getElementById('filter-search');
         if (searchEl) {
-            searchEl.removeAttribute('oninput');
             var debouncedFilter = debounce(function() { self.applyFilters(); }, 300);
             searchEl.addEventListener('input', debouncedFilter);
         }
+
+        // Kick off API status checks after initial render
+        this.loadStatusCache();
+        this.checkAllStatuses();
     }
 
     init() {
@@ -765,6 +779,7 @@ class Dashboard {
         this.charts.agency = this.createDoughnutChart('chart-agency', 'agency');
         this.charts.datatype = this.createBarChart('chart-datatype', 'dataType');
         this.charts.availability = this.createAvailabilityChart('chart-availability');
+        this.charts.radar = this.createRadarChart('chart-radar');
     }
 
     createDoughnutChart(canvasId, field) {
@@ -844,6 +859,53 @@ class Dashboard {
         });
     }
 
+    createRadarChart(canvasId) {
+        var d = this.filteredData;
+        // Top agencies by source count
+        var agencyCounts = {};
+        d.forEach(function(r) { agencyCounts[r.agency] = (agencyCounts[r.agency] || 0) + 1; });
+        var topAgencies = Object.entries(agencyCounts).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 6).map(function(e) { return e[0]; });
+
+        // Per-agency metrics: Sources, API count, GIS count, Data Types
+        var datasets = [];
+        var labels = ["Sources", "API Access", "GIS Access", "Data Types"];
+        var colorIdx = 0;
+        topAgencies.forEach(function(agency) {
+            var sources = d.filter(function(r) { return r.agency === agency; });
+            var apiCount = sources.filter(function(r) { return r.hasAPI === "Yes"; }).length;
+            var gisCount = sources.filter(function(r) { return r.hasGIS === "Yes"; }).length;
+            var dataTypes = new Set(sources.map(function(r) { return r.dataType; })).size;
+            datasets.push({
+                label: agency,
+                data: [sources.length, apiCount, gisCount, dataTypes],
+                borderColor: COLORS[colorIdx % COLORS.length],
+                backgroundColor: COLORS[colorIdx % COLORS.length] + "33",
+                borderWidth: 2,
+                pointRadius: 3
+            });
+            colorIdx++;
+        });
+
+        var ctx = document.getElementById(canvasId).getContext("2d");
+        return new Chart(ctx, {
+            type: "radar",
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 10 } },
+                        pointLabels: { font: { size: 11 } }
+                    }
+                },
+                plugins: {
+                    legend: { position: "right", labels: { usePointStyle: true, padding: 8, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
     updateCharts() {
         // Agency doughnut
         const agencyCounts = {};
@@ -868,6 +930,30 @@ class Dashboard {
         this.charts.availability.data.datasets[0].data = [d.filter(r => r.hasAPI === 'Yes').length, d.filter(r => r.hasGIS === 'Yes').length];
         this.charts.availability.data.datasets[1].data = [d.filter(r => r.hasAPI === 'No').length, d.filter(r => r.hasGIS === 'No').length];
         this.charts.availability.update('none');
+
+        // Radar chart — rebuild datasets for filtered data (reuse `d` from above)
+        var radarAgencyCounts = {};
+        d.forEach(function(r) { radarAgencyCounts[r.agency] = (radarAgencyCounts[r.agency] || 0) + 1; });
+        var topAgencies = Object.entries(radarAgencyCounts).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 6).map(function(e) { return e[0]; });
+        var radarDatasets = [];
+        var colorIdx = 0;
+        topAgencies.forEach(function(agency) {
+            var sources = d.filter(function(r) { return r.agency === agency; });
+            var apiCount = sources.filter(function(r) { return r.hasAPI === "Yes"; }).length;
+            var gisCount = sources.filter(function(r) { return r.hasGIS === "Yes"; }).length;
+            var dataTypes = new Set(sources.map(function(r) { return r.dataType; })).size;
+            radarDatasets.push({
+                label: agency,
+                data: [sources.length, apiCount, gisCount, dataTypes],
+                borderColor: COLORS[colorIdx % COLORS.length],
+                backgroundColor: COLORS[colorIdx % COLORS.length] + "33",
+                borderWidth: 2,
+                pointRadius: 3
+            });
+            colorIdx++;
+        });
+        this.charts.radar.data.datasets = radarDatasets;
+        this.charts.radar.update('none');
     }
 
     renderTable() {
@@ -884,11 +970,13 @@ class Dashboard {
         html += `<th onclick="dashboard.sort('dataType')">Data Type${arrow('dataType')}</th>`;
         html += `<th onclick="dashboard.sort('hasAPI')">API${arrow('hasAPI')}</th>`;
         html += `<th onclick="dashboard.sort('hasGIS')">GIS${arrow('hasGIS')}</th>`;
+        html += `<th>Status</th>`;
         html += `<th>Description</th>`;
         html += '</tr></thead><tbody>';
 
         data.forEach(row => {
             const catClass = row.category === 'Federal' ? 'badge-federal' : row.category === 'California State' ? 'badge-state' : 'badge-geo';
+            const status = this.getStatusForUrl(row.url);
             html += '<tr>';
             html += `<td><a href="${row.url}" target="_blank" rel="noopener noreferrer">${row.name}</a></td>`;
             html += `<td>${row.agency}</td>`;
@@ -896,6 +984,7 @@ class Dashboard {
             html += `<td>${row.dataType}</td>`;
             html += `<td><span class="badge ${row.hasAPI === 'Yes' ? 'badge-yes' : 'badge-no'}">${row.hasAPI}</span></td>`;
             html += `<td><span class="badge ${row.hasGIS === 'Yes' ? 'badge-yes' : 'badge-no'}">${row.hasGIS}</span></td>`;
+            html += `<td><span class="status-${status.state}"><span class="status-dot"></span>${status.label}</span></td>`;
             html += `<td>${row.description}</td>`;
             html += '</tr>';
         });
@@ -1048,6 +1137,104 @@ class Dashboard {
 
             marker.addTo(this.markerLayer);
         }.bind(this));
+    }
+
+    // ============================================================
+    // API STATUS CHECKER
+    // ============================================================
+    loadStatusCache() {
+        try {
+            var raw = sessionStorage.getItem("esa-api-status");
+            if (raw) {
+                var cached = JSON.parse(raw);
+                // Check TTL — expire after 15 minutes
+                if (cached.timestamp && (Date.now() - cached.timestamp) < 15 * 60 * 1000) {
+                    this.statusCache = cached.statuses || {};
+                }
+            }
+        } catch (_e) { /* ignore corrupt cache */ }
+    }
+
+    saveStatusCache() {
+        try {
+            sessionStorage.setItem("esa-api-status", JSON.stringify({
+                timestamp: Date.now(),
+                statuses: this.statusCache
+            }));
+        } catch (_e) { /* sessionStorage full or unavailable */ }
+    }
+
+    getStatusForUrl(url) {
+        var entry = this.statusCache[url];
+        if (!entry) return { state: "checking", label: "Checking..." };
+        return entry;
+    }
+
+    checkAllStatuses() {
+        var self = this;
+        var urls = this.rawData.map(function(src) { return src.url; });
+        var unchecked = urls.filter(function(url) { return !self.statusCache[url]; });
+
+        if (unchecked.length === 0) {
+            // All cached — just re-render
+            this.renderTable();
+            return;
+        }
+
+        // Check in batches of 5 to avoid overwhelming the browser
+        var batchSize = 5;
+        var idx = 0;
+
+        function processBatch() {
+            var batch = unchecked.slice(idx, idx + batchSize);
+            if (batch.length === 0) {
+                self.saveStatusCache();
+                self.renderTable();
+                return;
+            }
+
+            var promises = batch.map(function(url) {
+                return self.checkSingleUrl(url);
+            });
+
+            Promise.all(promises).then(function() {
+                // Update table after each batch so users see progress
+                self.renderTable();
+                idx += batchSize;
+                // Small delay between batches
+                setTimeout(processBatch, 200);
+            });
+        }
+
+        processBatch();
+    }
+
+    checkSingleUrl(url) {
+        var self = this;
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, 5000);
+
+        return fetch(url, {
+            method: "HEAD",
+            mode: "no-cors",
+            signal: controller.signal
+        }).then(function(response) {
+            clearTimeout(timeoutId);
+            // mode: "no-cors" returns opaque response (status 0) but no error means reachable
+            if (response.type === "opaque" || response.ok) {
+                self.statusCache[url] = { state: "online", label: "Online" };
+            } else {
+                self.statusCache[url] = { state: "offline", label: "Offline" };
+            }
+        }).catch(function(err) {
+            clearTimeout(timeoutId);
+            if (err.name === "AbortError") {
+                self.statusCache[url] = { state: "offline", label: "Timeout" };
+            } else {
+                // Network error or CORS block — mark unknown
+                self.statusCache[url] = { state: "unknown", label: "Unknown" };
+            }
+        });
     }
 }
 

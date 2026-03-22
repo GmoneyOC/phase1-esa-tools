@@ -21,7 +21,7 @@
       "source": "/(.*).html",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=86400" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net unpkg.com; style-src 'self' 'unsafe-inline' unpkg.com; img-src 'self' data: *.tile.openstreetmap.org; connect-src 'self'; font-src 'self'; worker-src 'self'; frame-ancestors 'none'" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net unpkg.com; style-src 'self' 'unsafe-inline' unpkg.com; img-src 'self' data: *.tile.openstreetmap.org; connect-src 'self' https:; font-src 'self'; worker-src 'self'; frame-ancestors 'none'" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },

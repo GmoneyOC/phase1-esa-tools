@@ -67,7 +67,7 @@ All use raw `innerHTML` assignment with unsanitized user input:
 ### 3. vercel.json CSP — Update on Every CDN Addition
 The Content-Security-Policy header in vercel.json must be updated whenever a new external script, stylesheet, or connection is added. See ARCHITECTURE_NOTES.md §5 for the full CSP evolution table.
 
-**Current CSP allows:** cdn.jsdelivr.net (Chart.js, DOMPurify), unpkg.com (Leaflet), tile.openstreetmap.org (map tiles), `worker-src 'self'` (SW).
+**Current CSP allows:** cdn.jsdelivr.net (Chart.js, DOMPurify), unpkg.com (Leaflet), tile.openstreetmap.org (map tiles), `worker-src 'self'` (SW), `connect-src 'self' https:` (API status checks).
 
 **Rule:** Before adding ANY external resource (CDN script, API endpoint, font, etc.), update the CSP in vercel.json FIRST.
 
@@ -137,9 +137,9 @@ P3.1 (GitHub repo) can start in parallel with Phase 1
 - P4.1: JSON/CSV export ✅ — exportJSON, importJSON, exportCSV in generator.html
 - P4.2: PWA offline ✅ — sw.js, manifest.json, SVG icons, all pages registered
 - P4.3: Leaflet map ✅ — Interactive map on dashboard, colored markers, filter sync
-- P4.4: API status — PENDING
+- P4.4: API status ✅ — Live status checks with sessionStorage cache, batched HEAD requests
 - P4.5: Report scoring ✅ — SVG progress ring, weighted scoring, tab badges
-- P4.6: Enhanced charts — PENDING
+- P4.6: Enhanced charts ✅ (partial) — Radar chart for agency capabilities, 2x2 layout
 - P4.7: Debounce ✅ (partial) — 300ms debounce on auto-save and dashboard search
 
 ---
