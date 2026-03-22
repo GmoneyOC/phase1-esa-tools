@@ -4,7 +4,8 @@
 - **Name:** phase1-esa-tools
 - **Version:** 1.0.0
 - **Type:** 100% client-side static site (no backend, no database)
-- **Stack:** Vanilla HTML5/CSS3/JavaScript, Chart.js 4.5.1 (CDN), DOMPurify 3.3.3 (CDN), Vite 8.0.1 build tool, Vercel hosting
+- **Stack:** Vanilla HTML5/CSS3/JavaScript, Chart.js 4.5.1 (CDN), DOMPurify 3.3.3 (CDN), Leaflet 1.9.4 (CDN), Vite 8.0.1 build tool, Vercel hosting
+- **PWA:** Service worker (sw.js), manifest.json, SVG icons — installable offline-capable app
 - **Build:** `npm run build` → Vite outputs to `build/` directory
 - **License:** MIT
 - **Standard:** ASTM E1527-21 / E1527-13 Phase I Environmental Site Assessments
@@ -14,8 +15,11 @@
 phase1-esa-tools/
 ├── public/
 │   ├── index.html          — Landing page, template downloads
-│   ├── dashboard.html      — Data sources dashboard, Chart.js, filters
+│   ├── dashboard.html      — Data sources dashboard, Chart.js, Leaflet map, filters
 │   ├── generator.html      — 5-tab ESA report generator
+│   ├── manifest.json       — PWA manifest (app name, icons, display mode)
+│   ├── sw.js               — Service worker (offline caching)
+│   ├── icons/              — PWA icons (192, 512, maskable SVGs)
 │   └── templates/          — 4 downloadable .docx templates
 ├── .github/workflows/ci.yml — GitHub Actions CI (lint, test, build)
 ├── tests/
@@ -24,7 +28,7 @@ phase1-esa-tools/
 │   └── data_integrity.test.js — 20 data structure + cross-file tests
 ├── package.json             — Scripts: dev, build, preview, lint, test
 ├── eslint.config.js         — ESLint v10 flat config (HTML + JS)
-├── vite.config.js           — Multi-page build config, template copy plugin
+├── vite.config.js           — Multi-page build config, asset copy plugin
 ├── vercel.json              — Vite build config, cache + security headers + CSP
 ├── .gitignore               — node_modules/, build/, dist/, .env
 ├── README.md
@@ -62,6 +66,8 @@ All use raw `innerHTML` assignment with unsanitized user input:
 
 ### 3. vercel.json CSP — Update on Every CDN Addition
 The Content-Security-Policy header in vercel.json must be updated whenever a new external script, stylesheet, or connection is added. See ARCHITECTURE_NOTES.md §5 for the full CSP evolution table.
+
+**Current CSP allows:** cdn.jsdelivr.net (Chart.js, DOMPurify), unpkg.com (Leaflet), tile.openstreetmap.org (map tiles), `worker-src 'self'` (SW).
 
 **Rule:** Before adding ANY external resource (CDN script, API endpoint, font, etc.), update the CSP in vercel.json FIRST.
 
@@ -119,13 +125,22 @@ P3.1 (GitHub repo) can start in parallel with Phase 1
 - P2.6: Inline event handler removal — DEFERRED to module extraction
 - P2.7: JSDoc documentation — DEFERRED to module extraction
 
-### Phase 3 (Weeks 6-9): Testing & CI/CD — IN PROGRESS
-- P3.1: GitHub repo creation — PENDING (requires user auth for GmoneyOC)
+### Phase 3 (Weeks 6-9): Testing & CI/CD ✅ COMPLETE (core items)
+- P3.1: GitHub repo ✅ — github.com/GmoneyOC/phase1-esa-tools
 - P3.2: E2E tests — DEFERRED (needs CI environment)
 - P3.3: Unit tests ✅ — 67 tests (validation, storage, data integrity) using Node.js test runner
 - P3.4: GitHub Actions CI ✅ — .github/workflows/ci.yml (lint → test → build)
-- P3.5: Vercel preview — PENDING (needs P3.1)
+- P3.5: Vercel ✅ — Connected to GitHub, auto-deploy on push
 - P3.6: ESLint ✅ — eslint.config.js, eslint-plugin-html, zero errors/warnings
+
+### Phase 4 (Weeks 10-14): Feature Expansion — IN PROGRESS
+- P4.1: JSON/CSV export ✅ — exportJSON, importJSON, exportCSV in generator.html
+- P4.2: PWA offline ✅ — sw.js, manifest.json, SVG icons, all pages registered
+- P4.3: Leaflet map ✅ — Interactive map on dashboard, colored markers, filter sync
+- P4.4: API status — PENDING
+- P4.5: Report scoring ✅ — SVG progress ring, weighted scoring, tab badges
+- P4.6: Enhanced charts — PENDING
+- P4.7: Debounce ✅ (partial) — 300ms debounce on auto-save and dashboard search
 
 ---
 

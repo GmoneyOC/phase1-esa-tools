@@ -6,6 +6,9 @@
     <title>Phase I ESA Report Generator &amp; Data Source Tracker</title>
     <meta name="description" content="Generate Phase I Environmental Site Assessment reports with database tracking, form validation, and ASTM E1527-21 compliance for California sites.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1b3a5c">
+    <link rel="apple-touch-icon" href="/icons/icon-192.svg">
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.3.3/dist/purify.min.js" integrity="sha384-pcBjnGbkyKeOXaoFkmJiuR9E08/6gkmus6/Strimnxtl3uk0Hx23v345pWyC/MMr" crossorigin="anonymous"></script>
     <style>
         :root {
@@ -1399,12 +1402,22 @@ function exportCSV() {
     showToast("Database checklist exported as CSV");
 }
 
+// Debounce utility — delays fn execution until after wait ms of inactivity
+function debounce(fn, wait) {
+    var timerId = null;
+    return function() {
+        if (timerId !== null) clearTimeout(timerId);
+        timerId = setTimeout(function() { timerId = null; fn(); }, wait);
+    };
+}
+
 // Attach auto-save to all form elements
 function attachAutoSave() {
+    var debouncedSave = debounce(function() { saveToLocalStorage(); updateScoreDisplay(); }, 300);
     document.querySelectorAll("input, textarea, select").forEach(el => {
         el.addEventListener("change", function() { saveToLocalStorage(); updateScoreDisplay(); });
         if (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type === "text")) {
-            el.addEventListener("input", function() { saveToLocalStorage(); updateScoreDisplay(); });
+            el.addEventListener("input", debouncedSave);
         }
     });
 }
@@ -1439,6 +1452,11 @@ try {
     attachAutoSave();
 } catch (e) {
     showError("Failed to initialize: " + e.message);
+}
+
+// Register service worker for offline support
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(function() { /* SW registration failed */ });
 }
 </script>
 </body>

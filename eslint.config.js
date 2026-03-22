@@ -15,7 +15,8 @@ export default [
                 ...globals.browser,
                 ...globals.es2021,
                 Chart: 'readonly',
-                DOMPurify: 'readonly'
+                DOMPurify: 'readonly',
+                L: 'readonly'
             }
         },
         rules: {

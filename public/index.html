@@ -6,6 +6,9 @@
     <title>Phase I ESA Tools &mdash; California Groundwater Site Investigation Toolkit</title>
     <meta name="description" content="Free Phase I Environmental Site Assessment tools for California hydrogeologists. Interactive data source dashboard, report generator, and ASTM E1527-21 templates.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1b3a5c">
+    <link rel="apple-touch-icon" href="/icons/icon-192.svg">
     <style>
         :root {
             --primary: #1b3a5c;
@@ -259,5 +262,10 @@ npx serve public</code></pre>
     Phase I ESA Tools &bull; Open Source &bull; Built for California Hydrogeologists &bull; <a href="https://github.com/GmoneyOC/phase1-esa-tools">GitHub</a>
 </footer>
 
+<script>
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(function() { /* SW registration failed — offline mode unavailable */ });
+}
+</script>
 </body>
 </html>
