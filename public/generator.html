@@ -465,7 +465,14 @@
             <button class="btn btn-outline" onclick="copyToClipboard()">Copy All Text</button>
         </div>
         <div class="preview-container" id="report-output"></div>
+        <h3 style="margin-top:24px;">Export &amp; Import</h3>
+        <p style="font-size:13px;color:var(--sub);margin-bottom:12px;">Save your report data as JSON to continue later or share. Export the database checklist as CSV for spreadsheet use.</p>
         <div class="actions">
+            <button class="btn btn-primary" onclick="exportJSON()">Export JSON</button>
+            <button class="btn btn-outline" onclick="importJSON()">Import JSON</button>
+            <button class="btn btn-outline" onclick="exportCSV()">Export Database Checklist (CSV)</button>
+        </div>
+        <div class="actions" style="margin-top:12px;">
             <button class="btn btn-outline" onclick="showTab('findings')">&larr; Back to Edit</button>
         </div>
     </div>
@@ -1253,6 +1260,143 @@ function clearSavedData() {
         localStorage.removeItem(STORAGE_KEY);
         location.reload();
     }
+}
+
+// ============================================================
+// EXPORT / IMPORT
+// ============================================================
+// eslint-disable-next-line no-unused-vars -- called from inline onclick
+function exportJSON() {
+    // Build the same data object as saveToLocalStorage
+    var data = { version: "1.0", exportDate: new Date().toISOString(), siteType: siteType, recCount: recCount };
+
+    FORM_FIELD_IDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) data[id] = el.value;
+    });
+
+    for (var i = 1; i <= recCount; i++) {
+        ["desc", "basis", "rec"].forEach(function(suffix) {
+            var el = document.getElementById("rec-" + i + "-" + suffix);
+            if (el) data["rec-" + i + "-" + suffix] = el.value;
+        });
+    }
+
+    FEDERAL_DBS.forEach(function(_, i) {
+        var id = "fed-" + i;
+        var cb = document.getElementById(id);
+        if (cb) data[id] = cb.checked;
+        var finding = document.getElementById(id + "-finding");
+        if (finding) data[id + "-finding"] = finding.value;
+        var date = document.getElementById(id + "-date");
+        if (date) data[id + "-date"] = date.value;
+    });
+    STATE_DBS.forEach(function(_, i) {
+        var id = "st-" + i;
+        var cb = document.getElementById(id);
+        if (cb) data[id] = cb.checked;
+        var finding = document.getElementById(id + "-finding");
+        if (finding) data[id + "-finding"] = finding.value;
+        var date = document.getElementById(id + "-date");
+        if (date) data[id + "-date"] = date.value;
+    });
+
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "esa_report_" + (data.siteName || "untitled").replace(/[^a-zA-Z0-9]/g, "_") + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Report data exported as JSON");
+}
+
+// eslint-disable-next-line no-unused-vars -- called from inline onclick
+function importJSON() {
+    var input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.addEventListener("change", function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                var data = JSON.parse(ev.target.result);
+                if (!data.version) {
+                    showToast("Invalid file: missing version field");
+                    return;
+                }
+
+                // Confirm before overwriting
+                if (!confirm("Import will overwrite all current form data. Continue?")) return;
+
+                // Store in localStorage and reload to trigger restoreFromLocalStorage
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                location.reload();
+            } catch (_err) {
+                showToast("Import failed: invalid JSON file");
+            }
+        };
+        reader.readAsText(file);
+    });
+    input.click();
+}
+
+// eslint-disable-next-line no-unused-vars -- called from inline onclick
+function exportCSV() {
+    var rows = [["Source", "Category", "Checked", "Finding", "Date Searched", "URL"]];
+
+    FEDERAL_DBS.forEach(function(db, i) {
+        var id = "fed-" + i;
+        var cb = document.getElementById(id);
+        var finding = document.getElementById(id + "-finding");
+        var date = document.getElementById(id + "-date");
+        rows.push([
+            db.name,
+            "Federal",
+            cb && cb.checked ? "Yes" : "No",
+            finding ? finding.value : "",
+            date ? date.value : "",
+            db.url
+        ]);
+    });
+
+    STATE_DBS.forEach(function(db, i) {
+        var id = "st-" + i;
+        var cb = document.getElementById(id);
+        var finding = document.getElementById(id + "-finding");
+        var date = document.getElementById(id + "-date");
+        rows.push([
+            db.name,
+            "California State",
+            cb && cb.checked ? "Yes" : "No",
+            finding ? finding.value : "",
+            date ? date.value : "",
+            db.url
+        ]);
+    });
+
+    // CSV encode: quote fields containing commas or quotes
+    var csv = rows.map(function(row) {
+        return row.map(function(cell) {
+            var s = String(cell);
+            if (s.indexOf(",") >= 0 || s.indexOf('"') >= 0 || s.indexOf("\n") >= 0) {
+                return '"' + s.replace(/"/g, '""') + '"';
+            }
+            return s;
+        }).join(",");
+    }).join("\n");
+
+    var blob = new Blob([csv], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    var siteName = document.getElementById("siteName");
+    a.download = "database_checklist_" + (siteName && siteName.value ? siteName.value.replace(/[^a-zA-Z0-9]/g, "_") : "export") + ".csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Database checklist exported as CSV");
 }
 
 // Attach auto-save to all form elements
