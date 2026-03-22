@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Phase I ESA Report Generator &amp; Data Source Tracker</title>
+    <meta name="description" content="Generate Phase I Environmental Site Assessment reports with database tracking, form validation, and ASTM E1527-21 compliance for California sites.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.3.3/dist/purify.min.js" integrity="sha384-pcBjnGbkyKeOXaoFkmJiuR9E08/6gkmus6/Strimnxtl3uk0Hx23v345pWyC/MMr" crossorigin="anonymous"></script>
     <style>
         :root {
             --primary: #1b3a5c;
@@ -145,6 +148,22 @@
         .stat-card .num { font-size: 24px; font-weight: 700; color: var(--primary); }
         .stat-card .lbl { font-size: 11px; color: var(--sub); text-transform: uppercase; }
 
+        /* Focus visible styles for keyboard navigation */
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .tab:focus-visible { outline: 2px solid #fff; outline-offset: -2px; border-radius: 4px; }
+        .site-type-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        /* Screen reader only - visually hidden but accessible */
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+        /* Validation error styles */
+        .field-error { border-color: var(--red) !important; box-shadow: 0 0 0 2px rgba(220,38,38,0.15) !important; }
+        .error-msg { color: var(--red); font-size: 12px; margin-top: 2px; display: none; }
+        .error-msg.visible { display: block; }
+        .required-star { color: var(--red); margin-left: 2px; }
+        .error-banner { background: #fef2f2; color: var(--red); border: 1px solid #fecaca; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 12px; display: none; font-size: 13px; }
+        .error-banner.visible { display: block; }
+
         @media print {
             .tabs, .header, .actions, .tab, .btn, .form-row, .form-row-3, label, input, textarea, select, .site-type-selector, .progress-bar, .stats-row { display: none !important; }
             .panel { display: block !important; border: none; box-shadow: none; padding: 0; }
@@ -160,14 +179,19 @@
     </style>
 </head>
 <body>
+<a href="#panel-site" class="sr-only" id="skip-link" style="position:absolute;top:-40px;left:0;background:var(--primary);color:#fff;padding:8px 16px;z-index:100;transition:top 0.2s;" onfocus="this.style.top='0'" onblur="this.style.top='-40px'">Skip to main content</a>
 <div class="app">
-    <div class="header">
+    <header class="header">
         <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.8);text-decoration:none;font-size:13px;padding:6px 14px;border-radius:6px;background:rgba(255,255,255,0.1);margin-bottom:10px;">&larr; Back to Toolkit</a>
-        <h1>Phase I ESA Report Generator &amp; Data Source Tracker</h1>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h1>Phase I ESA Report Generator &amp; Data Source Tracker</h1>
+            <button onclick="clearSavedData()" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;" title="Clear all saved form data">Clear All</button>
+        </div>
         <p>Enter site information, track database searches, and generate formatted report sections. Works with the companion .docx templates.</p>
-    </div>
+    </header>
 
-    <div class="progress-bar">
+    <main>
+    <div class="progress-bar" role="progressbar" aria-label="Form completion progress" aria-valuemin="0" aria-valuemax="5" aria-valuenow="1">
         <div class="progress-step" id="prog-1"></div>
         <div class="progress-step" id="prog-2"></div>
         <div class="progress-step" id="prog-3"></div>
@@ -175,31 +199,35 @@
         <div class="progress-step" id="prog-5"></div>
     </div>
 
-    <div class="tabs">
-        <div class="tab active" onclick="showTab('site')">1. Site Info</div>
-        <div class="tab" onclick="showTab('databases')">2. Database Searches</div>
-        <div class="tab" onclick="showTab('physical')">3. Physical Setting</div>
-        <div class="tab" onclick="showTab('findings')">4. Findings</div>
-        <div class="tab" onclick="showTab('preview')">5. Report Preview</div>
+    <nav aria-label="Form sections">
+    <div class="tabs" role="tablist" aria-label="Report sections">
+        <div class="tab active" role="tab" id="tab-site" aria-selected="true" aria-controls="panel-site" tabindex="0" onclick="showTab('site')">1. Site Info</div>
+        <div class="tab" role="tab" id="tab-databases" aria-selected="false" aria-controls="panel-databases" tabindex="-1" onclick="showTab('databases')">2. Database Searches</div>
+        <div class="tab" role="tab" id="tab-physical" aria-selected="false" aria-controls="panel-physical" tabindex="-1" onclick="showTab('physical')">3. Physical Setting</div>
+        <div class="tab" role="tab" id="tab-findings" aria-selected="false" aria-controls="panel-findings" tabindex="-1" onclick="showTab('findings')">4. Findings</div>
+        <div class="tab" role="tab" id="tab-preview" aria-selected="false" aria-controls="panel-preview" tabindex="-1" onclick="showTab('preview')">5. Report Preview</div>
     </div>
+    </nav>
+
+    <div id="validation-banner" class="error-banner" role="alert" aria-live="assertive"></div>
 
     <!-- TAB 1: SITE INFO -->
-    <div class="panel active" id="panel-site">
+    <div class="panel active" id="panel-site" role="tabpanel" aria-labelledby="tab-site">
         <h2>Site Information</h2>
         <h3>Select Site Type</h3>
-        <div class="site-type-selector">
-            <div class="site-type-btn" onclick="selectSiteType('commercial', this)">
-                <div class="icon">&#127981;</div>
+        <div class="site-type-selector" role="radiogroup" aria-label="Site type selection">
+            <div class="site-type-btn" role="radio" tabindex="0" aria-checked="false" onclick="selectSiteType('commercial', this)">
+                <div class="icon" aria-hidden="true">&#127981;</div>
                 <div class="label">Commercial / Industrial</div>
                 <div class="desc">Gas stations, dry cleaners, manufacturing, auto shops</div>
             </div>
-            <div class="site-type-btn" onclick="selectSiteType('agricultural', this)">
-                <div class="icon">&#127806;</div>
+            <div class="site-type-btn" role="radio" tabindex="0" aria-checked="false" onclick="selectSiteType('agricultural', this)">
+                <div class="icon" aria-hidden="true">&#127806;</div>
                 <div class="label">Undeveloped / Agricultural</div>
                 <div class="desc">Vacant land, farms, proposed development</div>
             </div>
-            <div class="site-type-btn" onclick="selectSiteType('residential', this)">
-                <div class="icon">&#127968;</div>
+            <div class="site-type-btn" role="radio" tabindex="0" aria-checked="false" onclick="selectSiteType('residential', this)">
+                <div class="icon" aria-hidden="true">&#127968;</div>
                 <div class="label">Residential / Mixed-Use</div>
                 <div class="desc">Housing, mixed-use, infill redevelopment</div>
             </div>
@@ -207,27 +235,27 @@
 
         <h3>Property Details</h3>
         <div class="form-row">
-            <div><label>Site Name</label><input type="text" id="siteName" placeholder="e.g., Former Smith Auto Body"></div>
-            <div><label>Site Address</label><input type="text" id="siteAddress" placeholder="123 Main St, City, CA 90000"></div>
+            <div><label for="siteName">Site Name</label><input type="text" id="siteName" placeholder="e.g., Former Smith Auto Body"></div>
+            <div><label for="siteAddress">Site Address</label><input type="text" id="siteAddress" placeholder="123 Main St, City, CA 90000"></div>
         </div>
         <div class="form-row-3">
-            <div><label>APN</label><input type="text" id="apn" placeholder="000-000-000"></div>
-            <div><label>Latitude</label><input type="text" id="lat" placeholder="34.0522"></div>
-            <div><label>Longitude</label><input type="text" id="lng" placeholder="-118.2437"></div>
+            <div><label for="apn">APN</label><input type="text" id="apn" placeholder="000-000-000"></div>
+            <div><label for="lat">Latitude</label><input type="text" id="lat" placeholder="34.0522"></div>
+            <div><label for="lng">Longitude</label><input type="text" id="lng" placeholder="-118.2437"></div>
         </div>
         <div class="form-row">
-            <div><label>Total Acreage</label><input type="text" id="acreage" placeholder="e.g., 2.5"></div>
-            <div><label>Current Zoning</label><input type="text" id="zoning" placeholder="e.g., M-1 Light Industrial"></div>
+            <div><label for="acreage">Total Acreage</label><input type="text" id="acreage" placeholder="e.g., 2.5"></div>
+            <div><label for="zoning">Current Zoning</label><input type="text" id="zoning" placeholder="e.g., M-1 Light Industrial"></div>
         </div>
         <h3>Client &amp; Project</h3>
         <div class="form-row-3">
-            <div><label>Client Name</label><input type="text" id="clientName" placeholder=""></div>
-            <div><label>Project Number</label><input type="text" id="projectNo" placeholder=""></div>
-            <div><label>Report Date</label><input type="date" id="reportDate"></div>
+            <div><label for="clientName">Client Name</label><input type="text" id="clientName" placeholder=""></div>
+            <div><label for="projectNo">Project Number</label><input type="text" id="projectNo" placeholder=""></div>
+            <div><label for="reportDate">Report Date</label><input type="date" id="reportDate"></div>
         </div>
         <div class="form-row">
-            <div><label>Prepared By</label><input type="text" id="preparedBy" placeholder="Consultant name/firm"></div>
-            <div><label>ASTM Standard</label>
+            <div><label for="preparedBy">Prepared By</label><input type="text" id="preparedBy" placeholder="Consultant name/firm"></div>
+            <div><label for="astmStandard">ASTM Standard</label>
                 <select id="astmStandard">
                     <option value="E1527-21">ASTM E1527-21</option>
                     <option value="E1527-13">ASTM E1527-13</option>
@@ -236,9 +264,9 @@
             </div>
         </div>
         <h3>Site Description</h3>
-        <label>Current Use Description</label>
+        <label for="currentUse">Current Use Description</label>
         <textarea id="currentUse" placeholder="Describe current site operations, structures, and activities..."></textarea>
-        <label>Adjoining Properties (N/S/E/W)</label>
+        <label for="adjoining">Adjoining Properties (N/S/E/W)</label>
         <textarea id="adjoining" placeholder="North: ..., South: ..., East: ..., West: ..."></textarea>
 
         <div class="actions">
@@ -247,11 +275,11 @@
     </div>
 
     <!-- TAB 2: DATABASE SEARCHES -->
-    <div class="panel" id="panel-databases">
+    <div class="panel" id="panel-databases" role="tabpanel" aria-labelledby="tab-databases">
         <h2>Database Investigation Checklist</h2>
         <p style="font-size:13px;color:var(--sub);margin-bottom:16px;">Check each database as you search it. All names link directly to the source. Dates auto-fill when checked.</p>
 
-        <div class="stats-row">
+        <div class="stats-row" aria-live="polite" aria-label="Database search progress">
             <div class="stat-card"><div class="num" id="stat-total">0</div><div class="lbl">Total Checked</div></div>
             <div class="stat-card"><div class="num" id="stat-federal">0</div><div class="lbl">Federal</div></div>
             <div class="stat-card"><div class="num" id="stat-state">0</div><div class="lbl">CA State</div></div>
@@ -283,18 +311,18 @@
     </div>
 
     <!-- TAB 3: PHYSICAL SETTING -->
-    <div class="panel" id="panel-physical">
+    <div class="panel" id="panel-physical" role="tabpanel" aria-labelledby="tab-physical">
         <h2>Physical Setting &amp; Hydrogeology</h2>
         <div class="form-row">
-            <div><label>Elevation (ft MSL)</label><input type="text" id="elevation" placeholder="e.g., 450"></div>
-            <div><label>Slope / Drainage Direction</label><input type="text" id="slope" placeholder="e.g., Gently sloping to the southwest"></div>
+            <div><label for="elevation">Elevation (ft MSL)</label><input type="text" id="elevation" placeholder="e.g., 450"></div>
+            <div><label for="slope">Slope / Drainage Direction</label><input type="text" id="slope" placeholder="e.g., Gently sloping to the southwest"></div>
         </div>
-        <label>Geology Description</label>
+        <label for="geology">Geology Description</label>
         <textarea id="geology" placeholder="Describe local geology from CGS maps..."></textarea>
         <div class="form-row-3">
-            <div><label>Depth to Groundwater (ft bgs)</label><input type="text" id="gwDepth" placeholder="e.g., 35"></div>
-            <div><label>GW Flow Direction</label><input type="text" id="gwFlow" placeholder="e.g., South-southwest"></div>
-            <div><label>Aquifer Type</label>
+            <div><label for="gwDepth">Depth to Groundwater (ft bgs)</label><input type="text" id="gwDepth" placeholder="e.g., 35"></div>
+            <div><label for="gwFlow">GW Flow Direction</label><input type="text" id="gwFlow" placeholder="e.g., South-southwest"></div>
+            <div><label for="aquiferType">Aquifer Type</label>
                 <select id="aquiferType">
                     <option value="">Select...</option>
                     <option value="Unconfined alluvial">Unconfined alluvial</option>
@@ -305,11 +333,11 @@
                 </select>
             </div>
         </div>
-        <label>Hydrogeology Notes (NWIS, CASGEM, WCR data)</label>
+        <label for="hydroNotes">Hydrogeology Notes (NWIS, CASGEM, WCR data)</label>
         <textarea id="hydroNotes" placeholder="Summarize groundwater data from NWIS, CASGEM, GAMA, Well Completion Reports..."></textarea>
         <div class="form-row">
-            <div><label>Soil Type (Web Soil Survey)</label><input type="text" id="soilType" placeholder="e.g., Hanford sandy loam"></div>
-            <div><label>Hydrologic Soil Group</label>
+            <div><label for="soilType">Soil Type (Web Soil Survey)</label><input type="text" id="soilType" placeholder="e.g., Hanford sandy loam"></div>
+            <div><label for="soilGroup">Hydrologic Soil Group</label>
                 <select id="soilGroup">
                     <option value="">Select...</option>
                     <option value="A - High infiltration">A - High infiltration</option>
@@ -320,7 +348,7 @@
             </div>
         </div>
         <div class="form-row">
-            <div><label>FEMA Flood Zone</label>
+            <div><label for="floodZone">FEMA Flood Zone</label>
                 <select id="floodZone">
                     <option value="">Select...</option>
                     <option value="Zone X - Minimal flood hazard">Zone X - Minimal</option>
@@ -331,7 +359,7 @@
                     <option value="Zone VE - Coastal flood">Zone VE - Coastal</option>
                 </select>
             </div>
-            <div><label>Seismic Hazard Zone (CGS)</label>
+            <div><label for="seismicZone">Seismic Hazard Zone (CGS)</label>
                 <select id="seismicZone">
                     <option value="">Select...</option>
                     <option value="None mapped">None mapped</option>
@@ -342,14 +370,14 @@
             </div>
         </div>
         <div class="form-row">
-            <div><label>Wetlands (NWI)</label>
+            <div><label for="wetlands">Wetlands (NWI)</label>
                 <select id="wetlands">
                     <option value="None identified on or adjacent to site">None identified</option>
                     <option value="Wetlands present on site">Present on site</option>
                     <option value="Wetlands adjacent to site">Adjacent to site</option>
                 </select>
             </div>
-            <div><label>Mean Annual Precipitation (in)</label><input type="text" id="precip" placeholder="e.g., 15.2"></div>
+            <div><label for="precip">Mean Annual Precipitation (in)</label><input type="text" id="precip" placeholder="e.g., 15.2"></div>
         </div>
 
         <div class="actions">
@@ -359,7 +387,7 @@
     </div>
 
     <!-- TAB 4: FINDINGS -->
-    <div class="panel" id="panel-findings">
+    <div class="panel" id="panel-findings" role="tabpanel" aria-labelledby="tab-findings">
         <h2>Findings &amp; Environmental Conditions</h2>
 
         <h3>Recognized Environmental Conditions (RECs)</h3>
@@ -367,18 +395,23 @@
         <button class="btn btn-sm btn-outline" onclick="addREC()">+ Add REC</button>
 
         <h3 style="margin-top:20px;">Controlled RECs (CRECs)</h3>
+        <label for="crecs" class="sr-only">CRECs Description</label>
         <textarea id="crecs" placeholder="Describe CRECs or state 'No CRECs were identified.'"></textarea>
 
         <h3>Historical RECs (HRECs)</h3>
+        <label for="hrecs" class="sr-only">HRECs Description</label>
         <textarea id="hrecs" placeholder="Describe HRECs or state 'No HRECs were identified.'"></textarea>
 
         <h3>De Minimis Conditions</h3>
+        <label for="deminimis" class="sr-only">De Minimis Description</label>
         <textarea id="deminimis" placeholder="Describe de minimis conditions or state 'No de minimis conditions were identified.'"></textarea>
 
         <h3>Data Gaps</h3>
+        <label for="dataGaps" class="sr-only">Data Gaps Description</label>
         <textarea id="dataGaps" placeholder="Document any significant data gaps per ASTM E1527-21 Section 12."></textarea>
 
         <h3>Overall Conclusion</h3>
+        <label for="conclusion" class="sr-only">Conclusion</label>
         <textarea id="conclusion" placeholder="Summarize overall conclusions and recommendations..."></textarea>
 
         <div class="actions">
@@ -388,7 +421,7 @@
     </div>
 
     <!-- TAB 5: PREVIEW -->
-    <div class="panel" id="panel-preview">
+    <div class="panel" id="panel-preview" role="tabpanel" aria-labelledby="tab-preview">
         <h2>Report Preview</h2>
         <p style="font-size:13px;color:var(--sub);margin-bottom:16px;">This preview shows your report content formatted for review. Use Ctrl+P to print or save as PDF. Copy sections into the .docx template for final delivery.</p>
         <div class="actions" style="margin-bottom:16px;">
@@ -400,9 +433,21 @@
             <button class="btn btn-outline" onclick="showTab('findings')">&larr; Back to Edit</button>
         </div>
     </div>
+    </main>
 </div>
 
+<div id="error-display" style="display:none;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:10px;padding:12px 16px;margin:12px auto;max-width:1200px;font-size:13px;"></div>
+
 <script>
+// Global error handler
+function showError(msg) {
+    const el = document.getElementById("error-display");
+    el.textContent = "Something went wrong: " + msg + ". Try refreshing the page.";
+    el.style.display = "block";
+    console.error("[ESA Tools Error]", msg);
+}
+window.onerror = function(msg) { showError(msg); };
+window.onunhandledrejection = function(e) { showError(e.reason); };
 // ============================================================
 // DATA
 // ============================================================
@@ -444,14 +489,186 @@ let siteType = "";
 let recCount = 0;
 
 // ============================================================
+// VALIDATION
+// ============================================================
+const validators = {
+    lat: {
+        test: v => v === "" || (/^-?\d+\.?\d*$/.test(v) && parseFloat(v) >= -90 && parseFloat(v) <= 90),
+        msg: "Latitude must be a number between -90 and 90"
+    },
+    lng: {
+        test: v => v === "" || (/^-?\d+\.?\d*$/.test(v) && parseFloat(v) >= -180 && parseFloat(v) <= 180),
+        msg: "Longitude must be a number between -180 and 180"
+    },
+    acreage: {
+        test: v => v === "" || (/^\d+\.?\d*$/.test(v) && parseFloat(v) > 0),
+        msg: "Acreage must be a positive number"
+    },
+    apn: {
+        test: v => v === "" || /^\d{3}-\d{3}-\d{3}$/.test(v),
+        msg: "APN format: 000-000-000"
+    },
+    reportDate: {
+        test: v => v === "" || new Date(v) <= new Date(),
+        msg: "Report date cannot be in the future"
+    },
+    gwDepth: {
+        test: v => v === "" || (/^\d+\.?\d*$/.test(v) && parseFloat(v) >= 0),
+        msg: "Depth to groundwater must be a non-negative number"
+    },
+    precip: {
+        test: v => v === "" || (/^\d+\.?\d*$/.test(v) && parseFloat(v) >= 0),
+        msg: "Precipitation must be a non-negative number"
+    },
+    elevation: {
+        test: v => v === "" || /^-?\d+\.?\d*$/.test(v),
+        msg: "Elevation must be a number"
+    }
+};
+
+function validateField(id) {
+    const el = document.getElementById(id);
+    if (!el || !validators[id]) return true;
+    const val = el.value.trim();
+    const valid = validators[id].test(val);
+    // Find or create error message element
+    let errEl = el.parentElement.querySelector('.error-msg');
+    if (!errEl) {
+        errEl = document.createElement('div');
+        errEl.className = 'error-msg';
+        errEl.textContent = validators[id].msg;
+        el.parentElement.appendChild(errEl);
+    }
+    if (valid) {
+        el.classList.remove('field-error');
+        errEl.classList.remove('visible');
+    } else {
+        el.classList.add('field-error');
+        errEl.classList.add('visible');
+    }
+    return valid;
+}
+
+function validateTab(tabId) {
+    const banner = document.getElementById('validation-banner');
+    banner.classList.remove('visible');
+    banner.textContent = '';
+
+    const tabFields = {
+        site: ['lat', 'lng', 'acreage', 'apn', 'reportDate'],
+        physical: ['gwDepth', 'precip', 'elevation']
+    };
+
+    const fields = tabFields[tabId] || [];
+    let allValid = true;
+    const errors = [];
+
+    fields.forEach(id => {
+        if (!validateField(id)) {
+            allValid = false;
+            errors.push(validators[id].msg);
+        }
+    });
+
+    if (!allValid) {
+        banner.textContent = "Please fix the highlighted fields before continuing.";
+        banner.classList.add('visible');
+    }
+    return allValid;
+}
+
+// Attach real-time validation on blur for validatable fields
+document.addEventListener('DOMContentLoaded', function() {
+    // Real-time validation on blur
+    Object.keys(validators).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('blur', function() { validateField(id); });
+            el.addEventListener('input', function() {
+                if (el.classList.contains('field-error')) { validateField(id); }
+            });
+        }
+    });
+
+    // Keyboard navigation for tabs (Arrow keys, Home, End)
+    const tabList = document.querySelector('[role="tablist"]');
+    const tabNames = ['site', 'databases', 'physical', 'findings', 'preview'];
+    if (tabList) {
+        tabList.addEventListener('keydown', function(e) {
+            const current = document.querySelector('.tab[aria-selected="true"]');
+            const idx = tabNames.indexOf(current.id.replace('tab-', ''));
+            let newIdx;
+
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                newIdx = (idx + 1) % tabNames.length;
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                newIdx = (idx - 1 + tabNames.length) % tabNames.length;
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                newIdx = 0;
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                newIdx = tabNames.length - 1;
+            } else {
+                return;
+            }
+
+            const newTab = document.getElementById('tab-' + tabNames[newIdx]);
+            newTab.focus();
+            showTab(tabNames[newIdx]);
+        });
+    }
+
+    // Make site type buttons keyboard accessible
+    document.querySelectorAll('.site-type-btn').forEach(btn => {
+        btn.setAttribute('tabindex', '0');
+        btn.setAttribute('role', 'radio');
+        btn.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                btn.click();
+            }
+        });
+    });
+});
+
+// ============================================================
 // TAB NAVIGATION
 // ============================================================
 function showTab(id) {
+    const tabOrder = ['site', 'databases', 'physical', 'findings', 'preview'];
+    const currentPanel = document.querySelector('.panel.active');
+    const currentId = currentPanel ? currentPanel.id.replace('panel-', '') : 'site';
+    const currentIdx = tabOrder.indexOf(currentId);
+    const targetIdx = tabOrder.indexOf(id);
+
+    // Validate current tab when moving forward
+    if (targetIdx > currentIdx) {
+        // P1.9: Check site type on Tab 1
+        if (currentId === 'site' && !siteType) {
+            const banner = document.getElementById('validation-banner');
+            banner.textContent = "Please select a site type before continuing.";
+            banner.classList.add('visible');
+            return;
+        }
+        if (!validateTab(currentId)) return;
+    }
+
     document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t => {
+        t.classList.remove("active");
+        t.setAttribute("aria-selected", "false");
+        t.setAttribute("tabindex", "-1");
+    });
     document.getElementById("panel-" + id).classList.add("active");
-    const tabMap = { site: 0, databases: 1, physical: 2, findings: 3, preview: 4 };
-    document.querySelectorAll(".tab")[tabMap[id]].classList.add("active");
+    const activeTab = document.getElementById("tab-" + id);
+    activeTab.classList.add("active");
+    activeTab.setAttribute("aria-selected", "true");
+    activeTab.setAttribute("tabindex", "0");
+    // Clear validation banner on successful navigation
+    document.getElementById('validation-banner').classList.remove('visible');
     updateProgress();
     if (id === "preview") generatePreview();
 }
@@ -471,10 +688,16 @@ function updateProgress() {
 // ============================================================
 // SITE TYPE
 // ============================================================
+// eslint-disable-next-line no-unused-vars -- called from inline onclick
 function selectSiteType(type, el) {
     siteType = type;
-    document.querySelectorAll(".site-type-btn").forEach(b => b.classList.remove("selected"));
+    document.querySelectorAll(".site-type-btn").forEach(b => {
+        b.classList.remove("selected");
+        b.setAttribute("aria-checked", "false");
+    });
     el.classList.add("selected");
+    el.setAttribute("aria-checked", "true");
+    saveToLocalStorage();
 }
 
 // ============================================================
@@ -496,7 +719,7 @@ function renderChecklistGroup(containerId, dbs, prefix) {
         html += `<div class="checklist-item">
             <input type="checkbox" id="${id}" onchange="onCheck('${id}')">
             <div>
-                <a href="${db.url}" target="_blank" rel="noopener">${db.name}</a> ${badges.join(" ")}
+                <a href="${db.url}" target="_blank" rel="noopener noreferrer">${db.name}</a> ${badges.join(" ")}
                 <div class="data-desc">${db.desc}</div>
             </div>
             <select id="${id}-finding" style="font-size:12px;">
@@ -510,9 +733,10 @@ function renderChecklistGroup(containerId, dbs, prefix) {
             <input type="date" id="${id}-date" style="font-size:12px;">
         </div>`;
     });
-    container.innerHTML = html;
+    container.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'rel'], ADD_TAGS: ['select', 'option', 'input'] });
 }
 
+// eslint-disable-next-line no-unused-vars -- called from inline onchange
 function onCheck(id) {
     const cb = document.getElementById(id);
     const dateField = document.getElementById(id + "-date");
@@ -522,6 +746,7 @@ function onCheck(id) {
     updateStats();
 }
 
+// eslint-disable-next-line no-unused-vars -- called from inline onclick
 function toggleChecklist(id) {
     const el = document.getElementById(id);
     el.style.display = el.style.display === "none" ? "block" : "none";
@@ -549,12 +774,12 @@ function addREC() {
     const container = document.getElementById("rec-list");
     const div = document.createElement("div");
     div.className = "rec-entry";
-    div.innerHTML = `<h4>REC-${recCount}</h4>
-        <label>Description</label><textarea id="rec-${recCount}-desc" placeholder="Describe the recognized environmental condition..."></textarea>
+    div.innerHTML = DOMPurify.sanitize(`<h4>REC-${recCount}</h4>
+        <label for="rec-${recCount}-desc">Description</label><textarea id="rec-${recCount}-desc" placeholder="Describe the recognized environmental condition..."></textarea>
         <div class="form-row">
-            <div><label>Basis (source)</label><input type="text" id="rec-${recCount}-basis" placeholder="e.g., GeoTracker LUST case, soil staining observed"></div>
-            <div><label>Recommendation</label><input type="text" id="rec-${recCount}-rec" placeholder="e.g., Phase II ESA recommended"></div>
-        </div>`;
+            <div><label for="rec-${recCount}-basis">Basis (source)</label><input type="text" id="rec-${recCount}-basis" placeholder="e.g., GeoTracker LUST case, soil staining observed"></div>
+            <div><label for="rec-${recCount}-rec">Recommendation</label><input type="text" id="rec-${recCount}-rec" placeholder="e.g., Phase II ESA recommended"></div>
+        </div>`, { ADD_TAGS: ['textarea', 'input'] });
     container.appendChild(div);
 }
 
@@ -683,28 +908,247 @@ function generatePreview() {
     <p><span class="sig-line">&nbsp;</span> <span class="sig-line">&nbsp;</span></p>
     <p style="font-size:10pt;color:var(--sub);">Environmental Professional Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</p>`;
 
-    document.getElementById("report-output").innerHTML = html;
+    document.getElementById("report-output").innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['style'] });
 }
 
+// eslint-disable-next-line no-unused-vars -- called from inline onclick
 function copyToClipboard() {
     const el = document.getElementById("report-output");
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    document.execCommand("copy");
-    sel.removeAllRanges();
-    alert("Report text copied to clipboard!");
+    const text = el.innerText;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            showToast("Report text copied to clipboard!");
+        }).catch(function() {
+            // Fallback for clipboard permission denied
+            fallbackCopy(el);
+        });
+    } else {
+        // Fallback for older browsers
+        fallbackCopy(el);
+    }
 }
+
+function fallbackCopy(el) {
+    try {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand("copy");
+        sel.removeAllRanges();
+        showToast("Report text copied to clipboard!");
+    } catch (_e) {
+        showToast("Copy failed — please select text manually and use Ctrl+C.");
+    }
+}
+
+function showToast(msg) {
+    // Remove existing toast if any
+    const existing = document.getElementById("toast-notification");
+    if (existing) existing.remove();
+
+    const toast = document.createElement("div");
+    toast.id = "toast-notification";
+    toast.textContent = msg;
+    toast.style.cssText = "position:fixed;bottom:24px;right:24px;background:var(--primary);color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;z-index:9999;opacity:0;transition:opacity 0.3s;";
+    document.body.appendChild(toast);
+    requestAnimationFrame(function() { toast.style.opacity = "1"; });
+    setTimeout(function() {
+        toast.style.opacity = "0";
+        setTimeout(function() { toast.remove(); }, 300);
+    }, 3000);
+}
+
+// ============================================================
+// LOCAL STORAGE SAVE / RESTORE
+// ============================================================
+const STORAGE_KEY = "phase1-esa-form-data";
+
+// All serializable text/select/textarea fields
+const FORM_FIELD_IDS = [
+    "siteName", "siteAddress", "apn", "lat", "lng", "acreage", "zoning",
+    "clientName", "projectNo", "reportDate", "preparedBy", "astmStandard",
+    "currentUse", "adjoining",
+    "elevation", "slope", "geology", "gwDepth", "gwFlow", "aquiferType",
+    "hydroNotes", "soilType", "soilGroup", "floodZone", "seismicZone", "wetlands", "precip",
+    "crecs", "hrecs", "deminimis", "dataGaps", "conclusion"
+];
+
+function saveToLocalStorage() {
+    try {
+        const data = { version: "1.0", siteType: siteType, recCount: recCount };
+
+        // Save all standard form fields
+        FORM_FIELD_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) data[id] = el.value;
+        });
+
+        // Save REC entries
+        for (let i = 1; i <= recCount; i++) {
+            ["desc", "basis", "rec"].forEach(suffix => {
+                const el = document.getElementById(`rec-${i}-${suffix}`);
+                if (el) data[`rec-${i}-${suffix}`] = el.value;
+            });
+        }
+
+        // Save checklist states (checkboxes, findings, dates)
+        FEDERAL_DBS.forEach((_, i) => {
+            const id = `fed-${i}`;
+            const cb = document.getElementById(id);
+            if (cb) data[id] = cb.checked;
+            const finding = document.getElementById(`${id}-finding`);
+            if (finding) data[`${id}-finding`] = finding.value;
+            const date = document.getElementById(`${id}-date`);
+            if (date) data[`${id}-date`] = date.value;
+        });
+        STATE_DBS.forEach((_, i) => {
+            const id = `st-${i}`;
+            const cb = document.getElementById(id);
+            if (cb) data[id] = cb.checked;
+            const finding = document.getElementById(`${id}-finding`);
+            if (finding) data[`${id}-finding`] = finding.value;
+            const date = document.getElementById(`${id}-date`);
+            if (date) data[`${id}-date`] = date.value;
+        });
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+        if (e.name === "QuotaExceededError") {
+            const banner = document.getElementById("validation-banner");
+            banner.textContent = "Warning: Browser storage is full. Your data may not be saved.";
+            banner.classList.add("visible");
+        }
+        console.error("Save to localStorage failed:", e);
+    }
+}
+
+function restoreFromLocalStorage() {
+    let raw;
+    try {
+        raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+    } catch (e) {
+        console.error("localStorage read failed:", e);
+        return false;
+    }
+
+    let data;
+    try {
+        data = JSON.parse(raw);
+    } catch (e) {
+        console.warn("Corrupt localStorage data — resetting.", e);
+        localStorage.removeItem(STORAGE_KEY);
+        return false;
+    }
+
+    // Restore site type
+    if (data.siteType) {
+        siteType = data.siteType;
+        document.querySelectorAll(".site-type-btn").forEach(btn => {
+            const label = btn.querySelector(".label").textContent.toLowerCase();
+            if ((data.siteType === "commercial" && label.includes("commercial")) ||
+                (data.siteType === "agricultural" && label.includes("undeveloped")) ||
+                (data.siteType === "residential" && label.includes("residential"))) {
+                btn.classList.add("selected");
+            }
+        });
+    }
+
+    // Restore standard form fields
+    FORM_FIELD_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && data[id] !== undefined) el.value = data[id];
+    });
+
+    // Restore RECs — must create DOM elements first, then fill values
+    if (data.recCount && data.recCount > 0) {
+        for (let i = 1; i <= data.recCount; i++) {
+            addREC();
+        }
+        for (let i = 1; i <= data.recCount; i++) {
+            ["desc", "basis", "rec"].forEach(suffix => {
+                const el = document.getElementById(`rec-${i}-${suffix}`);
+                if (el && data[`rec-${i}-${suffix}`] !== undefined) {
+                    el.value = data[`rec-${i}-${suffix}`];
+                }
+            });
+        }
+    }
+
+    // Restore checklist states
+    FEDERAL_DBS.forEach((_, i) => {
+        const id = `fed-${i}`;
+        const cb = document.getElementById(id);
+        if (cb && data[id] !== undefined) cb.checked = data[id];
+        const finding = document.getElementById(`${id}-finding`);
+        if (finding && data[`${id}-finding`] !== undefined) finding.value = data[`${id}-finding`];
+        const date = document.getElementById(`${id}-date`);
+        if (date && data[`${id}-date`] !== undefined) date.value = data[`${id}-date`];
+    });
+    STATE_DBS.forEach((_, i) => {
+        const id = `st-${i}`;
+        const cb = document.getElementById(id);
+        if (cb && data[id] !== undefined) cb.checked = data[id];
+        const finding = document.getElementById(`${id}-finding`);
+        if (finding && data[`${id}-finding`] !== undefined) finding.value = data[`${id}-finding`];
+        const date = document.getElementById(`${id}-date`);
+        if (date && data[`${id}-date`] !== undefined) date.value = data[`${id}-date`];
+    });
+
+    return true;
+}
+
+// eslint-disable-next-line no-unused-vars -- called from inline onclick
+function clearSavedData() {
+    if (confirm("Clear all saved form data? This cannot be undone.")) {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+    }
+}
+
+// Attach auto-save to all form elements
+function attachAutoSave() {
+    document.querySelectorAll("input, textarea, select").forEach(el => {
+        el.addEventListener("change", saveToLocalStorage);
+        if (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type === "text")) {
+            el.addEventListener("input", saveToLocalStorage);
+        }
+    });
+}
+
+// Warn before leaving with unsaved data
+window.addEventListener("beforeunload", function(e) {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        // Only warn if there's actual form content
+        try {
+            const data = JSON.parse(saved);
+            if (data.siteName || data.siteAddress || data.recCount > 0) {
+                e.preventDefault();
+            }
+        } catch (_e) { /* ignore */ }
+    }
+});
 
 // ============================================================
 // INIT
 // ============================================================
-renderChecklists();
-updateStats();
-updateProgress();
-document.getElementById("reportDate").value = new Date().toISOString().split("T")[0];
+try {
+    renderChecklists();
+    const restored = restoreFromLocalStorage();
+    updateStats();
+    updateProgress();
+    if (!restored) {
+        document.getElementById("reportDate").value = new Date().toISOString().split("T")[0];
+    }
+    // Attach auto-save after restore so restore doesn't trigger saves
+    attachAutoSave();
+} catch (e) {
+    showError("Failed to initialize: " + e.message);
+}
 </script>
 </body>
 </html>

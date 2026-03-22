@@ -34,7 +34,7 @@ Free, open-source toolkit for California groundwater site investigations. Intera
 
 ### Vercel (recommended)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USER/phase1-esa-tools)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/GmoneyOC/phase1-esa-tools)
 
 Or from the CLI:
 
@@ -45,7 +45,7 @@ npx vercel
 ### Run locally
 
 ```bash
-git clone https://github.com/YOUR_USER/phase1-esa-tools.git
+git clone https://github.com/GmoneyOC/phase1-esa-tools.git
 cd phase1-esa-tools
 npx serve public
 ```

@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>California Groundwater Site Investigation - Data Sources Dashboard</title>
+    <meta name="description" content="Interactive dashboard of 29 federal, state, and geologic data sources for California groundwater site investigations. Filter by category, API availability, and GIS support.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.3.3/dist/purify.min.js" integrity="sha384-pcBjnGbkyKeOXaoFkmJiuR9E08/6gkmus6/Strimnxtl3uk0Hx23v345pWyC/MMr" crossorigin="anonymous"></script>
     <style>
         :root {
             --bg-primary: #f0f4f8;
@@ -155,11 +158,17 @@
             .kpi-row { grid-template-columns: repeat(2, 1fr); }
             .filters { flex-direction: column; align-items: stretch; }
         }
+        /* Focus visible and screen reader styles */
+        :focus-visible { outline: 2px solid #2a5f8f; outline-offset: 2px; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+        [role="button"] { cursor: pointer; }
+        [role="button"]:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
     </style>
 </head>
 <body>
+<a href="#kpi-row" class="sr-only" style="position:absolute;top:-40px;left:0;background:#1b3a5c;color:#fff;padding:8px 16px;z-index:100;" onfocus="this.style.top='0'" onblur="this.style.top='-40px'">Skip to dashboard content</a>
 <div class="dashboard-container">
-    <div class="dashboard-header">
+    <header class="dashboard-header">
         <div class="header-top">
             <div>
                 <a href="index.html" class="back-link">&larr; Back to Toolkit</a>
@@ -167,9 +176,9 @@
                 <div class="subtitle">Data Sources Reference Dashboard &mdash; Federal, State &amp; Hydrogeology Databases</div>
             </div>
         </div>
-        <div class="filters">
+        <div class="filters" role="search" aria-label="Filter data sources">
             <div class="filter-group">
-                <label>Category</label>
+                <label for="filter-category">Category</label>
                 <select id="filter-category" onchange="dashboard.applyFilters()">
                     <option value="all">All Categories</option>
                     <option value="Federal">Federal</option>
@@ -178,13 +187,13 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>Data Type</label>
+                <label for="filter-datatype">Data Type</label>
                 <select id="filter-datatype" onchange="dashboard.applyFilters()">
                     <option value="all">All Data Types</option>
                 </select>
             </div>
             <div class="filter-group">
-                <label>API</label>
+                <label for="filter-api">API</label>
                 <select id="filter-api" onchange="dashboard.applyFilters()">
                     <option value="all">All</option>
                     <option value="Yes">Has API</option>
@@ -192,7 +201,7 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>GIS</label>
+                <label for="filter-gis">GIS</label>
                 <select id="filter-gis" onchange="dashboard.applyFilters()">
                     <option value="all">All</option>
                     <option value="Yes">Has GIS</option>
@@ -200,13 +209,14 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>Search</label>
+                <label for="filter-search">Search</label>
                 <input type="text" id="filter-search" placeholder="Search sources..." oninput="dashboard.applyFilters()">
             </div>
         </div>
-    </div>
+    </header>
 
-    <section class="kpi-row">
+    <main>
+    <section class="kpi-row" id="kpi-row" aria-label="Key metrics">
         <div class="kpi-card"><div class="kpi-label">Total Sources</div><div class="kpi-value" id="kpi-total">0</div></div>
         <div class="kpi-card"><div class="kpi-label">With API Access</div><div class="kpi-value" id="kpi-api">0</div></div>
         <div class="kpi-card"><div class="kpi-label">With GIS / WMS</div><div class="kpi-value" id="kpi-gis">0</div></div>
@@ -221,22 +231,23 @@
 
     <section class="table-section">
         <h3>All Data Sources</h3>
-        <div class="result-count" id="result-count"></div>
+        <div class="result-count" id="result-count" aria-live="polite"></div>
         <div id="table-container"></div>
     </section>
 
     <section class="detail-section">
-        <h2 class="federal-header" onclick="toggleSection('federal-cards')">Federal Data Sources <span class="toggle" id="toggle-federal-cards">&#9660;</span></h2>
+        <h2 class="federal-header" onclick="toggleSection('federal-cards')" role="button" aria-expanded="true" aria-controls="federal-cards" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection('federal-cards');}">Federal Data Sources <span class="toggle" id="toggle-federal-cards" aria-hidden="true">&#9660;</span></h2>
         <div class="detail-cards" id="federal-cards"></div>
     </section>
     <section class="detail-section">
-        <h2 class="state-header" onclick="toggleSection('state-cards')">California State Data Sources <span class="toggle" id="toggle-state-cards">&#9660;</span></h2>
+        <h2 class="state-header" onclick="toggleSection('state-cards')" role="button" aria-expanded="true" aria-controls="state-cards" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection('state-cards');}">California State Data Sources <span class="toggle" id="toggle-state-cards" aria-hidden="true">&#9660;</span></h2>
         <div class="detail-cards" id="state-cards"></div>
     </section>
     <section class="detail-section">
-        <h2 class="geo-header" onclick="toggleSection('geo-cards')">Geologic &amp; Hydrogeology Sources <span class="toggle" id="toggle-geo-cards">&#9660;</span></h2>
+        <h2 class="geo-header" onclick="toggleSection('geo-cards')" role="button" aria-expanded="true" aria-controls="geo-cards" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection('geo-cards');}">Geologic &amp; Hydrogeology Sources <span class="toggle" id="toggle-geo-cards" aria-hidden="true">&#9660;</span></h2>
         <div class="detail-cards" id="geo-cards"></div>
     </section>
+    </main>
 
     <footer class="dashboard-footer">
         Dashboard generated March 2026 &mdash; Verify all URLs before use; agency sites may update periodically.
@@ -628,11 +639,16 @@ const DATA = [
     }
 ];
 
+// eslint-disable-next-line no-unused-vars -- called from inline onclick
 function toggleSection(id) {
     const el = document.getElementById(id);
     const toggle = document.getElementById('toggle-' + id);
     el.classList.toggle('collapsed');
-    toggle.textContent = el.classList.contains('collapsed') ? '\u25B6' : '\u25BC';
+    const isCollapsed = el.classList.contains('collapsed');
+    toggle.textContent = isCollapsed ? '\u25B6' : '\u25BC';
+    // Update aria-expanded on the parent header
+    const header = el.previousElementSibling;
+    if (header) header.setAttribute('aria-expanded', String(!isCollapsed));
 }
 
 class Dashboard {
@@ -826,7 +842,7 @@ class Dashboard {
         data.forEach(row => {
             const catClass = row.category === 'Federal' ? 'badge-federal' : row.category === 'California State' ? 'badge-state' : 'badge-geo';
             html += '<tr>';
-            html += `<td><a href="${row.url}" target="_blank" rel="noopener">${row.name}</a></td>`;
+            html += `<td><a href="${row.url}" target="_blank" rel="noopener noreferrer">${row.name}</a></td>`;
             html += `<td>${row.agency}</td>`;
             html += `<td><span class="badge ${catClass}">${row.category}</span></td>`;
             html += `<td>${row.dataType}</td>`;
@@ -837,7 +853,7 @@ class Dashboard {
         });
 
         html += '</tbody></table>';
-        container.innerHTML = html;
+        container.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'rel', 'onclick'] });
     }
 
     sort(col) {
@@ -873,26 +889,33 @@ class Dashboard {
             sources.forEach(src => {
                 let endpoints = '';
                 if (src.apiUrl) {
-                    endpoints += `<div class="endpoints"><strong>API:</strong> <a href="${src.apiUrl}" target="_blank" rel="noopener">${src.apiUrl}</a></div>`;
+                    endpoints += `<div class="endpoints"><strong>API:</strong> <a href="${src.apiUrl}" target="_blank" rel="noopener noreferrer">${src.apiUrl}</a></div>`;
                 }
                 if (src.gisUrl) {
-                    endpoints += `<div class="endpoints"><strong>GIS:</strong> <a href="${src.gisUrl}" target="_blank" rel="noopener">${src.gisUrl}</a></div>`;
+                    endpoints += `<div class="endpoints"><strong>GIS:</strong> <a href="${src.gisUrl}" target="_blank" rel="noopener noreferrer">${src.gisUrl}</a></div>`;
                 }
 
                 html += `<div class="detail-card ${cat.cssClass}">
-                    <h4><a href="${src.url}" target="_blank" rel="noopener">${src.name}</a></h4>
+                    <h4><a href="${src.url}" target="_blank" rel="noopener noreferrer">${src.name}</a></h4>
                     <div class="agency-tag">${src.agency} &bull; ${src.dataType} &bull; API: ${src.hasAPI} &bull; GIS: ${src.hasGIS}</div>
                     <p>${src.detail}</p>
                     ${endpoints}
                 </div>`;
             });
 
-            container.innerHTML = html;
+            container.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'rel'] });
         });
     }
 }
 
-const dashboard = new Dashboard(DATA);
+try {
+    // eslint-disable-next-line no-unused-vars -- top-level init
+    var dashboard = new Dashboard(DATA);
+} catch (e) {
+    console.error("[Dashboard Error]", e);
+    document.body.insertAdjacentHTML("afterbegin",
+        '<div style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:10px;padding:12px 16px;margin:12px auto;max-width:1400px;font-size:13px;">Dashboard failed to load: ' + e.message + '. Try refreshing.</div>');
+}
 </script>
 </body>
 </html>
