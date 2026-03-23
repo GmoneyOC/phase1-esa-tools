@@ -764,7 +764,7 @@ function renderChecklistGroup(containerId, dbs, prefix) {
         if (db.api) badges.push('<span class="badge badge-api">API</span>');
         if (db.gis) badges.push('<span class="badge badge-gis">GIS</span>');
         html += `<div class="checklist-item">
-            <input type="checkbox" id="${id}" onchange="onCheck('${id}')">
+            <input type="checkbox" id="${id}" data-check-id="${id}">
             <div>
                 <a href="${db.url}" target="_blank" rel="noopener noreferrer">${db.name}</a> ${badges.join(" ")}
                 <div class="data-desc">${db.desc}</div>
@@ -780,15 +780,25 @@ function renderChecklistGroup(containerId, dbs, prefix) {
             <input type="date" id="${id}-date" style="font-size:12px;">
         </div>`;
     });
-    container.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'rel'], ADD_TAGS: ['select', 'option', 'input'] });
+    container.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'rel', 'data-check-id'], ADD_TAGS: ['select', 'option', 'input'] });
+    // Attach event listeners programmatically (DOMPurify strips inline onchange)
+    container.querySelectorAll('input[data-check-id]').forEach(function(cb) {
+        cb.addEventListener('change', function() { onCheck(cb.getAttribute('data-check-id')); });
+    });
 }
 
-// eslint-disable-next-line no-unused-vars -- called from inline onchange
+function localDateString() {
+    var d = new Date();
+    var mm = String(d.getMonth() + 1).padStart(2, "0");
+    var dd = String(d.getDate()).padStart(2, "0");
+    return d.getFullYear() + "-" + mm + "-" + dd;
+}
+
 function onCheck(id) {
     const cb = document.getElementById(id);
     const dateField = document.getElementById(id + "-date");
     if (cb.checked && !dateField.value) {
-        dateField.value = new Date().toISOString().split("T")[0];
+        dateField.value = localDateString();
     }
     updateStats();
 }
@@ -1446,7 +1456,7 @@ try {
     updateProgress();
     updateScoreDisplay();
     if (!restored) {
-        document.getElementById("reportDate").value = new Date().toISOString().split("T")[0];
+        document.getElementById("reportDate").value = localDateString();
     }
     // Attach auto-save after restore so restore doesn't trigger saves
     attachAutoSave();
@@ -1456,7 +1466,7 @@ try {
 
 // Register service worker for offline support
 if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(function() { /* SW registration failed */ });
+    navigator.serviceWorker.register("/sw.js").catch(function(err) { console.warn("SW registration failed:", err); });
 }
 </script>
 </body>

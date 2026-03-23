@@ -259,12 +259,12 @@ npx serve public</code></pre>
 </div>
 
 <footer>
-    Phase I ESA Tools &bull; Open Source &bull; Built for California Hydrogeologists &bull; <a href="https://github.com/GmoneyOC/phase1-esa-tools">GitHub</a>
+    Phase I ESA Tools &bull; Open Source &bull; Built for California Hydrogeologists &bull; <a href="https://github.com/GmoneyOC/phase1-esa-tools" target="_blank" rel="noopener noreferrer">GitHub</a>
 </footer>
 
 <script>
 if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(function() { /* SW registration failed — offline mode unavailable */ });
+    navigator.serviceWorker.register("/sw.js").catch(function(err) { console.warn("SW registration failed:", err); });
 }
 </script>
 </body>
