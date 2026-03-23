@@ -72,11 +72,17 @@ The Content-Security-Policy header in vercel.json must be updated whenever a new
 **Rule:** Before adding ANY external resource (CDN script, API endpoint, font, etc.), update the CSP in vercel.json FIRST.
 
 ### 4. Inline Event Handlers — Map Before Changing
-- generator.html has 17 inline handlers (onclick, onchange)
+- generator.html has 16 inline handlers (onclick, onchange) — checkbox onchange removed in QA fix
 - dashboard.html has 8 inline handlers (onchange, oninput, onclick)
 - Full map in ARCHITECTURE_NOTES.md §4
 
 **Rule:** Do NOT randomly remove inline handlers. They are replaced systematically in P2.6 using event delegation. Any handler change before P2.6 must update the map in §4.
+
+### 11. DOMPurify Strips Event Handlers
+DOMPurify removes ALL inline event attributes (onclick, onchange, oninput, etc.) by default. The database checklist in generator.html uses `data-check-id` attributes + programmatic `addEventListener()` after sanitization. Any future dynamically-rendered HTML that needs event handlers MUST use this same pattern — never rely on inline handlers surviving DOMPurify.
+
+### 12. Date Formatting — Use localDateString()
+Never use `new Date().toISOString().split("T")[0]` for user-facing dates — it returns UTC which can be off by 1 day. Use the `localDateString()` helper in generator.html which uses `getFullYear()/getMonth()/getDate()`.
 
 ### 5. localStorage Architecture
 - Key: `phase1-esa-form-data`
@@ -133,7 +139,7 @@ P3.1 (GitHub repo) can start in parallel with Phase 1
 - P3.5: Vercel ✅ — Connected to GitHub, auto-deploy on push
 - P3.6: ESLint ✅ — eslint.config.js, eslint-plugin-html, zero errors/warnings
 
-### Phase 4 (Weeks 10-14): Feature Expansion — IN PROGRESS
+### Phase 4 (Weeks 10-14): Feature Expansion ✅ COMPLETE (core items)
 - P4.1: JSON/CSV export ✅ — exportJSON, importJSON, exportCSV in generator.html
 - P4.2: PWA offline ✅ — sw.js, manifest.json, SVG icons, all pages registered
 - P4.3: Leaflet map ✅ — Interactive map on dashboard, colored markers, filter sync
@@ -141,6 +147,14 @@ P3.1 (GitHub repo) can start in parallel with Phase 1
 - P4.5: Report scoring ✅ — SVG progress ring, weighted scoring, tab badges
 - P4.6: Enhanced charts ✅ (partial) — Radar chart for agency capabilities, 2x2 layout
 - P4.7: Debounce ✅ (partial) — 300ms debounce on auto-save and dashboard search
+
+### QA Bug Fixes (Post Phase 4) ✅ COMPLETE
+- BUG-1/2: DOMPurify was stripping checkbox onchange handlers — switched to data attributes + programmatic listeners
+- BUG-3: SW registration .catch() now logs warnings instead of silent failure
+- BUG-4: Date fields use local time (localDateString()) instead of UTC toISOString()
+- UX-1: Dashboard table scrollable on mobile (min-width: 900px)
+- UX-2/3: Responsive chart legend (bottom on mobile), tighter padding
+- UX-5: GitHub link has target="_blank" rel="noopener noreferrer"
 
 ---
 
@@ -168,6 +182,8 @@ P3.1 (GitHub repo) can start in parallel with Phase 1
 | 5 | DOMPurify vs DOM API | DOMPurify now (P1.1), refactor to safe DOM APIs in P2.5 | Fastest XSS fix without restructuring; DOM APIs better long-term |
 | 6 | Template versioning | No version in filenames for v1 | Clean download names; track versions via git tags instead |
 | 7 | Test deploy timing | Deploy during Phase 1 (after P1.3) | Early validation of Vercel config + security headers |
+| 8 | DOMPurify + event handlers | Use data attributes + programmatic listeners | DOMPurify strips all inline event attrs by design; this pattern preserves XSS protection |
+| 9 | Date formatting | localDateString() helper | toISOString() returns UTC, off by 1 day in western timezones |
 
 ---
 
